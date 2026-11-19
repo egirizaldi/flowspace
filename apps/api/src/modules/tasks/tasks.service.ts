@@ -16,6 +16,7 @@ import { CreateLabelDto } from './dto/create-label.dto';
 import { UpdateLabelDto } from './dto/update-label.dto';
 import { AttachLabelDto } from './dto/attach-label.dto';
 import { SetParentTaskDto } from './dto/set-parent-task.dto';
+import { QueryBoardDto } from './dto/query-board.dto';
 import {
   TaskPriority,
   ProjectRole,
@@ -1051,6 +1052,91 @@ export class TasksService {
     return {
       ...updated,
       taskKey: `${updated.project.key}-${updated.taskNumber}`,
+    };
+  }
+
+  async getKanbanBoard(
+    projectId: string,
+    userId: string,
+    query?: QueryBoardDto,
+  ) {
+    const project = await this.checkProjectAccess(projectId, userId);
+
+    const statuses = await this.prisma.projectStatus.findMany({
+      where: { projectId },
+      orderBy: { position: 'asc' },
+    });
+
+    const where: Prisma.TaskWhereInput = {
+      projectId,
+      deletedAt: null,
+    };
+
+    if (!query?.includeSubtasks) {
+      where.parentTaskId = null;
+    }
+
+    if (query?.assigneeId) {
+      where.assigneeId = query.assigneeId;
+    }
+
+    if (query?.priority) {
+      where.priority = query.priority;
+    }
+
+    if (query?.search && query.search.trim()) {
+      const term = query.search.trim();
+      where.OR = [
+        { title: { contains: term, mode: 'insensitive' } },
+        { description: { contains: term, mode: 'insensitive' } },
+      ];
+    }
+
+    const tasks = await this.prisma.task.findMany({
+      where,
+      orderBy: { position: 'asc' },
+      include: {
+        ...taskIncludes,
+        labels: {
+          include: {
+            label: true,
+          },
+        },
+        _count: {
+          select: {
+            subtasks: { where: { deletedAt: null } },
+            comments: true,
+            attachments: true,
+          },
+        },
+      },
+    });
+
+    const columns = statuses.map((status) => {
+      const colTasks = tasks
+        .filter((t) => t.statusId === status.id)
+        .map((t) => ({
+          ...t,
+          taskKey: `${project.key}-${t.taskNumber}`,
+          labels: t.labels.map((tl) => tl.label),
+        }));
+
+      return {
+        id: status.id,
+        name: status.name,
+        category: status.category,
+        color: status.color,
+        position: status.position,
+        isDefault: status.isDefault,
+        tasks: colTasks,
+      };
+    });
+
+    return {
+      projectId: project.id,
+      projectKey: project.key,
+      projectName: project.name,
+      columns,
     };
   }
 }

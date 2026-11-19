@@ -3,6 +3,7 @@ import { TasksService } from './tasks.service';
 import { ProjectTasksController } from './project-tasks.controller';
 import { TasksController } from './tasks.controller';
 import { ProjectLabelsController } from './project-labels.controller';
+import { ProjectBoardController } from './project-board.controller';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
@@ -11,6 +12,7 @@ import { AuthModule } from '../auth/auth.module';
     ProjectTasksController,
     TasksController,
     ProjectLabelsController,
+    ProjectBoardController,
   ],
   providers: [TasksService],
   exports: [TasksService],
