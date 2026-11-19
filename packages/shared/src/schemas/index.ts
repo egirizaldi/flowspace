@@ -123,6 +123,7 @@ export const createProjectStatusSchema = z.object({
   category: z.enum(PROJECT_STATUS_CATEGORIES),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid HEX color code'),
   position: z.number().int().min(0).optional(),
+  isDefault: z.boolean().optional(),
 });
 
 export const updateProjectStatusSchema = z.object({
@@ -130,6 +131,11 @@ export const updateProjectStatusSchema = z.object({
   category: z.enum(PROJECT_STATUS_CATEGORIES).optional(),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional(),
   position: z.number().int().min(0).optional(),
+  isDefault: z.boolean().optional(),
+});
+
+export const reorderProjectStatusesSchema = z.object({
+  statusIds: z.array(z.string().uuid()).min(1, 'At least one status ID is required'),
 });
 
 // ==========================================

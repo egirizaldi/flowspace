@@ -11,6 +11,9 @@ import { UpdateProjectDto } from './dto/update-project.dto';
 import { QueryProjectsDto } from './dto/query-projects.dto';
 import { AddProjectMemberDto } from './dto/add-project-member.dto';
 import { UpdateProjectMemberDto } from './dto/update-project-member.dto';
+import { CreateProjectStatusDto } from './dto/create-project-status.dto';
+import { UpdateProjectStatusDto } from './dto/update-project-status.dto';
+import { ReorderProjectStatusesDto } from './dto/reorder-project-statuses.dto';
 import {
   ProjectLifecycleStatus,
   ProjectRole,
@@ -673,5 +676,198 @@ export class ProjectsService {
       success: true,
       message: 'Member removed from project successfully',
     };
+  }
+
+  // ==========================================
+  // Project Status Configuration Methods (FS-031)
+  // ==========================================
+
+  async listStatuses(projectId: string, userId: string) {
+    await this.checkProjectAccess(projectId, userId, false);
+
+    return this.prisma.projectStatus.findMany({
+      where: { projectId },
+      orderBy: { position: 'asc' },
+      include: {
+        _count: {
+          select: { tasks: true },
+        },
+      },
+    });
+  }
+
+  async createStatus(
+    projectId: string,
+    userId: string,
+    dto: CreateProjectStatusDto,
+  ) {
+    await this.checkProjectAccess(projectId, userId, true);
+
+    let position = dto.position;
+    if (position === undefined) {
+      const last = await this.prisma.projectStatus.findFirst({
+        where: { projectId },
+        orderBy: { position: 'desc' },
+      });
+      position = last ? last.position + 1000 : 1000;
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.isDefault) {
+        await tx.projectStatus.updateMany({
+          where: { projectId, isDefault: true },
+          data: { isDefault: false },
+        });
+      }
+
+      return tx.projectStatus.create({
+        data: {
+          projectId,
+          name: dto.name.trim(),
+          category: dto.category,
+          color: dto.color,
+          position,
+          isDefault: Boolean(dto.isDefault),
+        },
+        include: {
+          _count: {
+            select: { tasks: true },
+          },
+        },
+      });
+    });
+  }
+
+  async updateStatus(
+    projectId: string,
+    statusId: string,
+    userId: string,
+    dto: UpdateProjectStatusDto,
+  ) {
+    await this.checkProjectAccess(projectId, userId, true);
+
+    const existing = await this.prisma.projectStatus.findFirst({
+      where: { id: statusId, projectId },
+    });
+    if (!existing) {
+      throw new NotFoundException('Project status not found');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      if (dto.isDefault === true) {
+        await tx.projectStatus.updateMany({
+          where: { projectId, isDefault: true },
+          data: { isDefault: false },
+        });
+      } else if (dto.isDefault === false && existing.isDefault) {
+        const otherDefaults = await tx.projectStatus.count({
+          where: { projectId, isDefault: true, id: { not: statusId } },
+        });
+        if (otherDefaults === 0) {
+          throw new BadRequestException(
+            'Cannot unset default status. Designate another status as default first.',
+          );
+        }
+      }
+
+      return tx.projectStatus.update({
+        where: { id: statusId },
+        data: {
+          ...(dto.name ? { name: dto.name.trim() } : {}),
+          ...(dto.category ? { category: dto.category } : {}),
+          ...(dto.color ? { color: dto.color } : {}),
+          ...(dto.position !== undefined ? { position: dto.position } : {}),
+          ...(dto.isDefault !== undefined ? { isDefault: dto.isDefault } : {}),
+        },
+        include: {
+          _count: {
+            select: { tasks: true },
+          },
+        },
+      });
+    });
+  }
+
+  async deleteStatus(projectId: string, statusId: string, userId: string) {
+    await this.checkProjectAccess(projectId, userId, true);
+
+    const existing = await this.prisma.projectStatus.findFirst({
+      where: { id: statusId, projectId },
+    });
+    if (!existing) {
+      throw new NotFoundException('Project status not found');
+    }
+
+    const totalStatuses = await this.prisma.projectStatus.count({
+      where: { projectId },
+    });
+    if (totalStatuses <= 1) {
+      throw new BadRequestException('Cannot delete the only status in the project.');
+    }
+
+    if (existing.isDefault) {
+      throw new BadRequestException(
+        'Cannot delete default status. Designate another status as default first.',
+      );
+    }
+
+    const tasksCount = await this.prisma.task.count({
+      where: { statusId },
+    });
+    if (tasksCount > 0) {
+      throw new ConflictException(
+        `Cannot delete status '${existing.name}' because it is assigned to ${tasksCount} task(s). Migrate tasks to another status first.`,
+      );
+    }
+
+    await this.prisma.projectStatus.delete({
+      where: { id: statusId },
+    });
+
+    return {
+      success: true,
+      message: 'Project status deleted successfully',
+      deletedId: statusId,
+    };
+  }
+
+  async reorderStatuses(
+    projectId: string,
+    userId: string,
+    dto: ReorderProjectStatusesDto,
+  ) {
+    await this.checkProjectAccess(projectId, userId, true);
+
+    const existing = await this.prisma.projectStatus.findMany({
+      where: { projectId },
+    });
+    const existingIds = new Set(existing.map((s) => s.id));
+
+    for (const id of dto.statusIds) {
+      if (!existingIds.has(id)) {
+        throw new BadRequestException(
+          `Status '${id}' does not belong to this project`,
+        );
+      }
+    }
+
+    await this.prisma.$transaction(
+      dto.statusIds.map((id, index) =>
+        this.prisma.projectStatus.update({
+          where: { id },
+          data: { position: (index + 1) * 1000 },
+        }),
+      ),
+    );
+
+    return this.prisma.projectStatus.findMany({
+      where: { projectId },
+      orderBy: { position: 'asc' },
+      include: {
+        _count: {
+          select: { tasks: true },
+        },
+      },
+    });
   }
 }

@@ -3,6 +3,7 @@ import { ProjectsService } from './projects.service';
 import { ProjectsController } from './projects.controller';
 import { ProjectMembersController } from './project-members.controller';
 import { WorkspaceProjectsController } from './workspace-projects.controller';
+import { ProjectStatusesController } from './project-statuses.controller';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
@@ -11,6 +12,7 @@ import { AuthModule } from '../auth/auth.module';
     WorkspaceProjectsController,
     ProjectsController,
     ProjectMembersController,
+    ProjectStatusesController,
   ],
   providers: [ProjectsService],
   exports: [ProjectsService],

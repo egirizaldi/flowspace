@@ -33,6 +33,7 @@ export type CreateProjectInput = z.infer<typeof schemas.createProjectSchema>;
 export type UpdateProjectInput = z.infer<typeof schemas.updateProjectSchema>;
 export type CreateProjectStatusInput = z.infer<typeof schemas.createProjectStatusSchema>;
 export type UpdateProjectStatusInput = z.infer<typeof schemas.updateProjectStatusSchema>;
+export type ReorderProjectStatusesInput = z.infer<typeof schemas.reorderProjectStatusesSchema>;
 
 // Task types
 export type CreateTaskInput = z.infer<typeof schemas.createTaskSchema>;
