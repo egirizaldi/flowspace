@@ -22,6 +22,9 @@ export default function HomePage() {
           </div>
         </div>
         <div className="flex items-center space-x-3">
+          <Link href="/organizations">
+            <Button variant="outline" size="sm">Organizations</Button>
+          </Link>
           <Link href="/login">
             <Button variant="ghost" size="sm">Sign In</Button>
           </Link>
