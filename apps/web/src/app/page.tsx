@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { BackendStatus } from '@/components/backend-status';
 import { DEFAULT_PROJECT_STATUSES } from '@flowspace/shared';
 import { Kanban, Layers, Users, ShieldCheck, ArrowRight, Sparkles } from 'lucide-react';
 
@@ -71,6 +72,11 @@ export default function HomePage() {
             </div>
           ))}
         </div>
+      </section>
+
+      {/* Backend & Database Integration Status */}
+      <section className="w-full max-w-5xl my-4">
+        <BackendStatus />
       </section>
 
       {/* Feature Architecture Cards */}
