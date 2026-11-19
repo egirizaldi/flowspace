@@ -2,10 +2,12 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { Organization, OrganizationMember, OrganizationRole } from '@prisma/client';
 import { CreateOrganizationDto } from './dto/create-organization.dto';
+import { UpdateOrganizationDto } from './dto/update-organization.dto';
 
 @Injectable()
 export class OrganizationsService {
@@ -147,5 +149,94 @@ export class OrganizationsService {
       userRole: m.role,
       joinedAt: m.joinedAt,
     }));
+  }
+
+  async findByIdForUser(organizationId: string, userId: string) {
+    const member = await this.findMember(organizationId, userId);
+    if (!member) {
+      throw new ForbiddenException('You do not have access to this organization');
+    }
+
+    const org = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+      include: {
+        _count: {
+          select: {
+            members: true,
+            workspaces: true,
+          },
+        },
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                avatarUrl: true,
+              },
+            },
+          },
+          orderBy: { joinedAt: 'asc' },
+        },
+      },
+    });
+
+    if (!org) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    return {
+      ...org,
+      currentUserRole: member.role,
+    };
+  }
+
+  async update(
+    organizationId: string,
+    userId: string,
+    dto: UpdateOrganizationDto,
+  ): Promise<Organization> {
+    const member = await this.findMember(organizationId, userId);
+    if (!member) {
+      throw new ForbiddenException('You do not have access to this organization');
+    }
+
+    if (
+      member.role !== OrganizationRole.OWNER &&
+      member.role !== OrganizationRole.ADMIN
+    ) {
+      throw new ForbiddenException(
+        'Only organization owners and admins can update organization details',
+      );
+    }
+
+    return this.prisma.organization.update({
+      where: { id: organizationId },
+      data: {
+        name: dto.name ? dto.name.trim() : undefined,
+        description: dto.description !== undefined ? dto.description?.trim() ?? null : undefined,
+        logoUrl: dto.logoUrl !== undefined ? dto.logoUrl : undefined,
+      },
+    });
+  }
+
+  async delete(organizationId: string, userId: string): Promise<boolean> {
+    const member = await this.findMember(organizationId, userId);
+    if (!member) {
+      throw new ForbiddenException('You do not have access to this organization');
+    }
+
+    if (member.role !== OrganizationRole.OWNER) {
+      throw new ForbiddenException(
+        'Only the organization owner can delete the organization',
+      );
+    }
+
+    await this.prisma.organization.delete({
+      where: { id: organizationId },
+    });
+
+    return true;
   }
 }

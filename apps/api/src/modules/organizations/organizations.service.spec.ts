@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { OrganizationsService } from './organizations.service';
 import { PrismaService } from '../../database/prisma.service';
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { OrganizationRole } from '@prisma/client';
 
 describe('OrganizationsService', () => {
@@ -12,6 +12,8 @@ describe('OrganizationsService', () => {
     organization: {
       findUnique: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
     },
     organizationMember: {
       findUnique: jest.fn(),
@@ -160,6 +162,102 @@ describe('OrganizationsService', () => {
       expect(result[0].id).toBe('org-1');
       expect(result[0].userRole).toBe(OrganizationRole.OWNER);
       expect(result[0]._count.members).toBe(3);
+    });
+  });
+
+  describe('findByIdForUser', () => {
+    it('should throw ForbiddenException if user is not a member of the organization', async () => {
+      mockPrismaService.organizationMember.findUnique.mockResolvedValue(null);
+
+      await expect(service.findByIdForUser('org-1', 'non-member')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('should return organization detail with member role if user is a member', async () => {
+      mockPrismaService.organizationMember.findUnique.mockResolvedValue({
+        id: 'mem-1',
+        role: OrganizationRole.ADMIN,
+      });
+      mockPrismaService.organization.findUnique.mockResolvedValue({
+        id: 'org-1',
+        name: 'Acme',
+        members: [{ id: 'mem-1', user: { name: 'Admin' } }],
+        _count: { members: 1, workspaces: 0 },
+      });
+
+      const result = await service.findByIdForUser('org-1', 'user-1');
+
+      expect(result.id).toBe('org-1');
+      expect(result.currentUserRole).toBe(OrganizationRole.ADMIN);
+    });
+  });
+
+  describe('update', () => {
+    it('should throw ForbiddenException if user is not a member', async () => {
+      mockPrismaService.organizationMember.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.update('org-1', 'outsider', { name: 'New Name' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw ForbiddenException if user is only a MEMBER', async () => {
+      mockPrismaService.organizationMember.findUnique.mockResolvedValue({
+        id: 'mem-1',
+        role: OrganizationRole.MEMBER,
+      });
+
+      await expect(
+        service.update('org-1', 'member-1', { name: 'New Name' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should allow update if user is ADMIN or OWNER', async () => {
+      mockPrismaService.organizationMember.findUnique.mockResolvedValue({
+        id: 'mem-1',
+        role: OrganizationRole.ADMIN,
+      });
+      mockPrismaService.organization.update.mockResolvedValue({
+        id: 'org-1',
+        name: 'Updated Name',
+      });
+
+      const result = await service.update('org-1', 'admin-1', { name: 'Updated Name' });
+
+      expect(mockPrismaService.organization.update).toHaveBeenCalledWith({
+        where: { id: 'org-1' },
+        data: { name: 'Updated Name', description: undefined, logoUrl: undefined },
+      });
+      expect(result.name).toBe('Updated Name');
+    });
+  });
+
+  describe('delete', () => {
+    it('should throw ForbiddenException if user is not OWNER (e.g. ADMIN)', async () => {
+      mockPrismaService.organizationMember.findUnique.mockResolvedValue({
+        id: 'mem-1',
+        role: OrganizationRole.ADMIN,
+      });
+
+      await expect(service.delete('org-1', 'admin-1')).rejects.toThrow(
+        ForbiddenException,
+      );
+    });
+
+    it('should delete organization if user is OWNER', async () => {
+      mockPrismaService.organizationMember.findUnique.mockResolvedValue({
+        id: 'mem-1',
+        role: OrganizationRole.OWNER,
+      });
+      mockPrismaService.organization.delete.mockResolvedValue({ id: 'org-1' });
+
+      const result = await service.delete('org-1', 'owner-1');
+
+      expect(mockPrismaService.organization.delete).toHaveBeenCalledWith({
+        where: { id: 'org-1' },
+      });
+      expect(result).toBe(true);
     });
   });
 });
