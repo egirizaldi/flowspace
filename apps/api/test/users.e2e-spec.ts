@@ -1,8 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../src/database/prisma.service';
-import { PrismaModule } from '../src/database/prisma.module';
 import { UsersService } from '../src/modules/users/users.service';
-import { UsersModule } from '../src/modules/users/users.module';
+import { AppModule } from '../src/app.module';
 import { ConflictException } from '@nestjs/common';
 
 describe('User Model Database Constraints (Integration)', () => {
@@ -13,7 +12,7 @@ describe('User Model Database Constraints (Integration)', () => {
 
   beforeAll(async () => {
     const moduleRef: TestingModule = await Test.createTestingModule({
-      imports: [PrismaModule, UsersModule],
+      imports: [AppModule],
     }).compile();
 
     prisma = moduleRef.get<PrismaService>(PrismaService);
