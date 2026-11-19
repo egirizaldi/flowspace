@@ -419,6 +419,66 @@ export class InvitationsService {
     return invitation;
   }
 
+  async getInvitationInfo(rawToken: string) {
+    const tokenHash = this.hashToken(rawToken);
+    const invitation = await this.prisma.invitation.findUnique({
+      where: { tokenHash },
+      include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            logoUrl: true,
+          },
+        },
+        workspace: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+          },
+        },
+        project: {
+          select: {
+            id: true,
+            name: true,
+            key: true,
+          },
+        },
+        inviter: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+
+    if (!invitation) {
+      throw new NotFoundException('Invitation not found');
+    }
+
+    const isExpired =
+      invitation.status === InvitationStatus.EXPIRED ||
+      new Date() > invitation.expiresAt;
+
+    return {
+      id: invitation.id,
+      email: invitation.email,
+      role: invitation.role,
+      status: isExpired ? InvitationStatus.EXPIRED : invitation.status,
+      expiresAt: invitation.expiresAt,
+      isExpired,
+      organization: invitation.organization,
+      workspace: invitation.workspace,
+      project: invitation.project,
+      inviter: invitation.inviter,
+    };
+  }
+
   async findById(id: string): Promise<Invitation | null> {
     return this.prisma.invitation.findUnique({
       where: { id },
@@ -468,12 +528,157 @@ export class InvitationsService {
   async accept(rawToken: string, userId: string): Promise<Invitation> {
     const invitation = await this.findValidByRawToken(rawToken);
 
-    return this.prisma.invitation.update({
-      where: { id: invitation.id },
-      data: {
-        status: InvitationStatus.ACCEPTED,
-        acceptedAt: new Date(),
-      },
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Organization Scope
+      if (invitation.organizationId) {
+        const existingOrgMember = await tx.organizationMember.findUnique({
+          where: {
+            organizationId_userId: {
+              organizationId: invitation.organizationId,
+              userId,
+            },
+          },
+        });
+        if (!existingOrgMember) {
+          await tx.organizationMember.create({
+            data: {
+              organizationId: invitation.organizationId,
+              userId,
+              role: invitation.role as OrganizationRole,
+            },
+          });
+        }
+      }
+
+      // 2. Workspace Scope
+      if (invitation.workspaceId) {
+        const ws = await tx.workspace.findUnique({
+          where: { id: invitation.workspaceId },
+        });
+        if (!ws) {
+          throw new NotFoundException('Target workspace not found');
+        }
+
+        // Ensure user is an OrganizationMember of parent organization
+        const existingOrgMember = await tx.organizationMember.findUnique({
+          where: {
+            organizationId_userId: {
+              organizationId: ws.organizationId,
+              userId,
+            },
+          },
+        });
+        if (!existingOrgMember) {
+          await tx.organizationMember.create({
+            data: {
+              organizationId: ws.organizationId,
+              userId,
+              role: OrganizationRole.MEMBER,
+            },
+          });
+        }
+
+        const existingWsMember = await tx.workspaceMember.findUnique({
+          where: {
+            workspaceId_userId: {
+              workspaceId: invitation.workspaceId,
+              userId,
+            },
+          },
+        });
+        if (!existingWsMember) {
+          await tx.workspaceMember.create({
+            data: {
+              workspaceId: invitation.workspaceId,
+              userId,
+              role: invitation.role as WorkspaceRole,
+            },
+          });
+        }
+      }
+
+      // 3. Project Scope
+      if (invitation.projectId) {
+        const project = await tx.project.findUnique({
+          where: { id: invitation.projectId },
+        });
+        if (!project) {
+          throw new NotFoundException('Target project not found');
+        }
+
+        // Auto-join parent organization
+        const existingOrgMember = await tx.organizationMember.findUnique({
+          where: {
+            organizationId_userId: {
+              organizationId: project.organizationId,
+              userId,
+            },
+          },
+        });
+        if (!existingOrgMember) {
+          await tx.organizationMember.create({
+            data: {
+              organizationId: project.organizationId,
+              userId,
+              role: OrganizationRole.MEMBER,
+            },
+          });
+        }
+
+        // Auto-join parent workspace
+        const existingWsMember = await tx.workspaceMember.findUnique({
+          where: {
+            workspaceId_userId: {
+              workspaceId: project.workspaceId,
+              userId,
+            },
+          },
+        });
+        if (!existingWsMember) {
+          await tx.workspaceMember.create({
+            data: {
+              workspaceId: project.workspaceId,
+              userId,
+              role: WorkspaceRole.MEMBER,
+            },
+          });
+        }
+
+        // Join project
+        const existingPMember = await tx.projectMember.findUnique({
+          where: {
+            projectId_userId: {
+              projectId: invitation.projectId,
+              userId,
+            },
+          },
+        });
+        if (!existingPMember) {
+          await tx.projectMember.create({
+            data: {
+              projectId: invitation.projectId,
+              userId,
+              role: invitation.role as ProjectRole,
+            },
+          });
+        }
+      }
+
+      // 4. Transition invitation status to ACCEPTED
+      const updated = await tx.invitation.update({
+        where: { id: invitation.id },
+        data: {
+          status: InvitationStatus.ACCEPTED,
+          acceptedAt: new Date(),
+        },
+        include: {
+          organization: true,
+          workspace: true,
+          project: true,
+        },
+      });
+
+      return updated;
     });
   }
 }

@@ -27,18 +27,21 @@ describe('InvitationsService', () => {
     },
     organizationMember: {
       findUnique: jest.fn(),
+      create: jest.fn(),
     },
     workspace: {
       findUnique: jest.fn(),
     },
     workspaceMember: {
       findUnique: jest.fn(),
+      create: jest.fn(),
     },
     project: {
       findUnique: jest.fn(),
     },
     projectMember: {
       findUnique: jest.fn(),
+      create: jest.fn(),
     },
     invitation: {
       findUnique: jest.fn(),
@@ -46,6 +49,7 @@ describe('InvitationsService', () => {
       create: jest.fn(),
       update: jest.fn(),
     },
+    $transaction: jest.fn((callback) => callback(mockPrismaService)),
   };
 
   beforeEach(async () => {
@@ -338,8 +342,12 @@ describe('InvitationsService', () => {
         id: 'inv-1',
         status: InvitationStatus.PENDING,
         expiresAt: new Date(Date.now() + 100000),
+        organizationId: 'org-1',
+        role: 'MEMBER',
       };
       mockPrismaService.invitation.findUnique.mockResolvedValue(mockInvitation);
+      mockPrismaService.organizationMember.findUnique.mockResolvedValue(null);
+      mockPrismaService.organizationMember.create.mockResolvedValue({});
       mockPrismaService.invitation.update.mockResolvedValue({
         ...mockInvitation,
         status: InvitationStatus.ACCEPTED,
