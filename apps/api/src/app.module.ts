@@ -7,6 +7,7 @@ import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { WorkspacesModule } from './modules/workspaces/workspaces.module';
+import { InvitationsModule } from './modules/invitations/invitations.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { WorkspacesModule } from './modules/workspaces/workspaces.module';
     AuthModule,
     OrganizationsModule,
     WorkspacesModule,
+    InvitationsModule,
   ],
 })
 export class AppModule {}
