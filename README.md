@@ -1,174 +1,92 @@
-# BizFlow — Multi-Tenant SaaS Management Platform
+# FlowSpace
 
-BizFlow adalah platform Software-as-a-Service (SaaS) B2B yang memungkinkan banyak organisasi mengelola operasional bisnis, tim, peran hak akses, dan paket langganan secara terisolasi dalam satu arsitektur aplikasi bersama (*shared database, shared schema*).
-
----
-
-## 📚 Dokumentasi Proyek
-
-Dokumentasi arsitektur dan spesifikasi teknis proyek telah disusun secara terperinci di dalam folder `docs/`:
-
-1. **[Product Requirements Document (PRD)](docs/PRD.md)**
-   * Visi produk, problem statement, dan target pengguna.
-   * Matriks peran hak akses (RBAC: Owner, Admin, Manager, Staff).
-   * Spesifikasi lengkap fitur utama, tier langganan, dan Non-Functional Requirements (NFR).
-
-2. **[Skill & Kompetensi yang Dibutuhkan](docs/SKILLS-AND-COMPETENCIES.md)**
-   * Pemetaan keahlian frontend (Next.js, Tailwind, Recharts, Lucide).
-   * Arsitektur backend (NestJS Guards, Decorators, Custom Interceptors).
-   * Desain database & isolasi tenant (PostgreSQL, Prisma Client Extensions).
-   * Payment Gateway Midtrans, Docker Compose, dan Nginx.
-
-3. **[Arsitektur Sistem & Desain Database](docs/SYSTEM-ARCHITECTURE-AND-DATABASE.md)**
-   * Diagram arsitektur decoupled (Client, Gateway, API, DB, Midtrans).
-   * Entity-Relationship Diagram (ERD) dan skema Prisma (`schema.prisma`) lengkap.
-   * Mekanisme implementasi 3 lapis isolasi tenant di NestJS.
-   * Sequence diagram transaksi Midtrans Snap & rekonsiliasi webhook SHA512.
-
-4. **[Roadmap & Checklist Implementasi 12 Tahap](docs/ROADMAP-AND-CHECKLIST.md)**
-   * Panduan eksekusi bertahap dari Tahap 1 (Auth) hingga Tahap 12 (VPS Deployment).
-   * Checklist to-do teknis dan *Acceptance Criteria* per tahap (100% Selesai).
+> **Organize Work. Move Forward.**  
+> Modern, collaborative project management SaaS combining Trello's intuitive Kanban, Linear's sleek UX, and Jira's structured Agile workflows.
 
 ---
 
-## 🔑 Akun Demo Cepat (Quick Start Credentials)
+## 1. Project Overview
 
-Setelah menjalankan aplikasi, Anda dapat langsung masuk tanpa perlu mendaftar dari nol:
+FlowSpace is a collaborative work management platform built for modern software engineering teams, designers, product managers, and startups. It provides a structured workspace hierarchy:
 
-| Kolom | Kredensial Demo |
-| :--- | :--- |
-| **URL Login** | `http://localhost:3000/login` (atau `http://localhost/login` via Docker) |
-| **Email** | `demo@bizflow.com` |
-| **Password** | `password123` |
-| **Workspace** | `PT Nusantara Solusi Digital` (Peran: `OWNER`) |
-| **Paket Aktif** | **BUSINESS Tier** (Fitur Export Excel, Faktur PDF, dan Audit Trail aktif) |
+$$\text{Organization} \longrightarrow \text{Workspace} \longrightarrow \text{Project} \longrightarrow \text{Task}$$
 
----
-
-## 🛠️ Tech Stack Utama
-
-* **Frontend**: Next.js 16 (App Router), TypeScript, Tailwind CSS 4, Recharts, Lucide Icons, js-cookie.
-* **Backend**: NestJS 12 (TypeScript, NodeNext ESM), RESTful API, Passport JWT, Nodemailer, ExcelJS, PDFKit.
-* **Database & ORM**: PostgreSQL 16, Prisma ORM 6.4 (Shared Database / Shared Schema pattern).
-* **Caching & Queue**: Redis 7.x, BullMQ ready.
-* **Payment Gateway**: Midtrans Snap API & Webhook Notification (dengan Sandbox Mock Simulator).
-* **DevOps & Infra**: Docker multi-stage builds, Docker Compose, Nginx reverse proxy, Ubuntu Linux.
+### Core Capabilities
+- **Multi-Tenant Organization & Workspace Isolation**
+- **Agile Project Management & Customizable Kanban Boards**
+- **Interactive Drag-and-Drop Task Management (dnd-kit)**
+- **Session-based Secure HttpOnly Cookie Authentication**
+- **Role-Based Access Control (RBAC)**
+- **Task Discussions, Comments & Activity Audit Trail**
 
 ---
 
-## 🚀 Panduan Menjalankan Aplikasi
+## 2. Technology Stack
 
-### Opsi A: Menggunakan Docker Compose (Production-Ready)
-Sistem dapat dijalankan secara instan mencakup PostgreSQL, Redis, NestJS Backend, Next.js Standalone Frontend, dan Nginx Gateway:
+### Frontend
+- **Framework:** Next.js (App Router)
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS & shadcn/ui
+- **State Management:** TanStack Query (Server State) & Zustand (UI State)
+- **Forms & Validation:** React Hook Form & Zod
+- **Drag-and-Drop:** dnd-kit
 
-1. **Salin environment configuration**:
-   ```bash
-   cp .env.docker.example .env
-   ```
-2. **Jalankan seluruh service dalam kontainer**:
-   ```bash
-   docker compose up -d --build
-   ```
-3. **Akses aplikasi**:
-   - Web App (Nginx Gateway): `http://localhost`
-   - REST API: `http://localhost/api/v1`
-   - Healthcheck: `http://localhost/healthz`
+### Backend
+- **Framework:** NestJS (Modular Monolith)
+- **Language:** TypeScript
+- **Database & ORM:** PostgreSQL & Prisma ORM
+- **Authentication:** Server-side Sessions (Opaque Hashed Token in HttpOnly Cookies)
+- **API Style:** REST API (`/api/v1`) with Swagger/OpenAPI Documentation
 
-### Opsi B: Menjalankan Secara Lokal (Development Mode)
-
-1. **Prasyarat**:
-   - Node.js v22+
-   - Yarn (`npm install -g yarn`)
-   - PostgreSQL berjalan di `localhost:5432`
-
-2. **Backend Setup**:
-   ```bash
-   cd backend
-   yarn install --ignore-engines
-   cp .env.example .env
-   npx prisma migrate dev
-   npx tsx prisma/seed.ts
-   yarn start:dev
-   ```
-   *Backend REST API aktif di `http://localhost:3001/api/v1`*
-
-3. **Frontend Setup**:
-   ```bash
-   cd frontend
-   yarn install --ignore-engines
-   yarn dev
-   ```
-   *Frontend Next.js aktif di `http://localhost:3000`*
-
-4. **Menjalankan Unit Test**:
-   ```bash
-   cd backend
-   yarn test
-   # Seluruh 14 test suites (90 unit tests) akan berjalan otomatis via Vitest
-   ```
+### Architecture & Infrastructure
+- **Monorepo:** pnpm workspaces & Turborepo
+- **Containerization:** Docker & Docker Compose
+- **Object Storage (Phase 2):** Cloudflare R2
 
 ---
 
-## 🏆 Ringkasan Status 12 Tahapan Roadmap
-
-Semua 12 tahap implementasi produksi telah berhasil diselesaikan 100%:
-1. **Tahap 1: Authentication & Session Management** (JWT, Refresh Token, Bcrypt, Login/Register UI) ✅
-2. **Tahap 2: Workspace / Organization Management** (Auto-slug, Org Switcher, Multi-Org Membership) ✅
-3. **Tahap 3: Multi-Tenant Data Isolation** (TenantGuard, CurrentTenant Decorator, Scoped Project Service) ✅
-4. **Tahap 4: Role-Based Access Control (RBAC)** (RolesGuard, Can Component, Dynamic Permissions Matrix) ✅
-5. **Tahap 5: Team Management & Invitations** (48-hr Invitations, Token Activation, Role Changer, Member Kick) ✅
-6. **Tahap 6: Dashboard Analytics & Metrics** (AnalyticsService, Tenant Metrics, SuperAdmin Global View, Recharts) ✅
-7. **Tahap 7: Subscription Management & Plan Gating** (SubscriptionGuard, Quota Enforcer, Pricing Matrix 4 Tiers) ✅
-8. **Tahap 8: Payment Gateway Integration** (Midtrans Snap, SHA512 Webhook Signature, Idempotent Auto-Renewal) ✅
-9. **Tahap 9: Audit Logging System** (Non-blocking Safe Audit Trail, Action Filters, Real-time Search, JSON Viewer) ✅
-10. **Tahap 10: Transactional Email Notifications** (Nodemailer v10.6, Mock Sandbox Fallback, Responsive HTML Templates) ✅
-11. **Tahap 11: Export Laporan PDF & Excel** (ExcelJS Project & Audit Logs, PDFKit Formal A4 Invoices with Plan Gating) ✅
-12. **Tahap 12: Containerization & Production Deployment** (Multi-Stage Dockerfiles, Standalone Next.js, Docker Compose, Nginx Reverse Proxy) ✅
-
----
-
-## 📁 Struktur Direktori Repositori
+## 3. Repository Structure
 
 ```text
-bizflow-saas/
-├── backend/                  # NestJS 12 Application (REST API)
-│   ├── prisma/               # Skema ORM, migrasi, dan seed script
-│   ├── src/
-│   │   ├── analytics/        # Agregasi metrik tenant & Super Admin
-│   │   ├── audit/            # Audit trail & logging mutasi data
-│   │   ├── auth/             # Autentikasi JWT & session guards
-│   │   ├── billing/          # Midtrans Snap & webhook processing
-│   │   ├── common/           # TenantGuard, RolesGuard, decorators
-│   │   ├── mail/             # Nodemailer service & template email
-│   │   ├── organization/     # Workspace & organization management
-│   │   ├── project/          # Project scoping per tenant
-│   │   ├── report/           # Export Excel (.xlsx) & PDF (.pdf)
-│   │   ├── subscription/     # Plan gating & quota enforcement
-│   │   └── team/             # Invitations, roles, & member control
-│   └── Dockerfile            # Multi-stage production container backend
-│
-├── frontend/                 # Next.js 16 (App Router) Web App
-│   ├── src/
-│   │   ├── app/              # Dashboard, login, register, layout
-│   │   ├── components/       # Reusable UI components & Can guard
-│   │   └── lib/              # Auth cookie handlers & API client
-│   └── Dockerfile            # Multi-stage standalone container frontend
-│
-├── docker/
-│   └── nginx/                # Nginx reverse proxy configuration
-│
-├── docs/                     # Dokumentasi arsitektur & PRD komprehensif
-│   ├── PRD.md
-│   ├── SKILLS-AND-COMPETENCIES.md
-│   ├── SYSTEM-ARCHITECTURE-AND-DATABASE.md
-│   └── ROADMAP-AND-CHECKLIST.md
-│
-├── .env.docker.example       # Template konfigurasi environment Docker
-├── docker-compose.yml        # Multi-container orchestration (5 services)
+flowspace/
+├── apps/
+│   ├── web/                  # Next.js web application
+│   └── api/                  # NestJS backend REST API
+├── packages/
+│   └── shared/               # Shared types, constants, and Zod schemas
+├── docs/                     # Comprehensive product & technical documentation
+├── docker/                   # Docker deployment configurations
+├── AGENTS.md                 # Master instructions for AI coding agents
+├── .env.example              # Environment variables template
+├── .gitignore
+├── package.json              # Monorepo root configuration
 └── README.md
 ```
 
 ---
 
-## 📄 Lisensi
-Proyek ini dibuat untuk tujuan demonstrasi dan implementasi arsitektur SaaS produksi berstandar industri. Lisensi terbuka (*UNLICENSED / MIT*).
+## 4. Documentation Index
+
+Detailed specifications and architectural guides are maintained in the [`docs/`](./docs) directory:
+
+| Document | Description |
+|---|---|
+| [docs/PRODUCT-VISION.md](./docs/PRODUCT-VISION.md) | Product vision, target users, and long-term roadmap |
+| [docs/PRD.md](./docs/PRD.md) | Product Requirements Document (PRD) & feature specs |
+| [docs/SYSTEM-ARCHITECTURE.md](./docs/SYSTEM-ARCHITECTURE.md) | System architecture, security model, and component layout |
+| [docs/DATABASE-DESIGN.md](./docs/DATABASE-DESIGN.md) | Relational database schema, ERD, and Prisma specifications |
+| [docs/API-SPECIFICATION.md](./docs/API-SPECIFICATION.md) | REST API endpoints, DTO contracts, and error responses |
+| [docs/TASK-BREAKDOWN.md](./docs/TASK-BREAKDOWN.md) | Vertical slice development tasks from Phase 0 to Phase 8 |
+| [docs/DESIGN-SYSTEM.md](./docs/DESIGN-SYSTEM.md) | UI Design tokens, dark/light theme palettes, and typography |
+| [docs/USER-JOURNEY.md](./docs/USER-JOURNEY.md) | User personas, information architecture, and core user flows |
+| [docs/USER-ROLES-PERMISSIONS.md](./docs/USER-ROLES-PERMISSIONS.md) | Multi-tenant RBAC permissions matrix |
+| [AGENTS.md](./AGENTS.md) | Mandatory protocol and guidelines for AI coding agents |
+
+---
+
+## 5. Development Principles
+
+All development on FlowSpace adheres to the following protocol defined in [AGENTS.md](./AGENTS.md):
+- **Vertical Slice Development:** One task from [docs/TASK-BREAKDOWN.md](./docs/TASK-BREAKDOWN.md) at a time.
+- **Strict Verification:** Type check, lint, and execute unit/integration tests before committing.
+- **Rule of Work:** *One Task → One Implementation → One Verification → One Commit.*
