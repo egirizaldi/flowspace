@@ -1,0 +1,14 @@
+{
+  "name": "@flowspace/api",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo \"NestJS dev placeholder (FS-004)\"",
+    "build": "echo \"NestJS build placeholder (FS-004)\"",
+    "lint": "echo \"NestJS lint placeholder (FS-004)\"",
+    "test": "echo \"NestJS test placeholder (FS-004)\""
+  },
+  "dependencies": {
+    "@flowspace/shared": "workspace:*"
+  }
+}

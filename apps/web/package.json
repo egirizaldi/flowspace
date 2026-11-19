@@ -1,0 +1,14 @@
+{
+  "name": "@flowspace/web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "echo \"Next.js dev placeholder (FS-003)\"",
+    "build": "echo \"Next.js build placeholder (FS-003)\"",
+    "lint": "echo \"Next.js lint placeholder (FS-003)\"",
+    "test": "echo \"Next.js test placeholder (FS-003)\""
+  },
+  "dependencies": {
+    "@flowspace/shared": "workspace:*"
+  }
+}
