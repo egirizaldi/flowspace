@@ -1,12 +1,17 @@
 import { Module } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 import { ProjectsController } from './projects.controller';
+import { ProjectMembersController } from './project-members.controller';
 import { WorkspaceProjectsController } from './workspace-projects.controller';
 import { AuthModule } from '../auth/auth.module';
 
 @Module({
   imports: [AuthModule],
-  controllers: [WorkspaceProjectsController, ProjectsController],
+  controllers: [
+    WorkspaceProjectsController,
+    ProjectsController,
+    ProjectMembersController,
+  ],
   providers: [ProjectsService],
   exports: [ProjectsService],
 })

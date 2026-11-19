@@ -19,6 +19,9 @@ describe('ProjectsService', () => {
   let prisma: PrismaService;
 
   const mockPrismaService = {
+    user: {
+      findUnique: jest.fn(),
+    },
     workspace: {
       findUnique: jest.fn(),
     },
@@ -39,7 +42,11 @@ describe('ProjectsService', () => {
     },
     projectMember: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
     },
     projectStatus: {
       createMany: jest.fn(),
@@ -436,6 +443,199 @@ describe('ProjectsService', () => {
       expect(res.success).toBe(true);
       expect(mockPrismaService.project.delete).toHaveBeenCalledWith({
         where: { id: 'proj-1' },
+      });
+    });
+  });
+
+  describe('Project Membership', () => {
+    describe('listMembers', () => {
+      it('should list project members', async () => {
+        mockPrismaService.project.findUnique.mockResolvedValue({
+          id: 'proj-1',
+          workspaceId: 'ws-1',
+          organizationId: 'org-1',
+        });
+        mockPrismaService.projectMember.findUnique.mockResolvedValue({
+          role: ProjectRole.MEMBER,
+        });
+        mockPrismaService.projectMember.findMany.mockResolvedValue([
+          { id: 'm-1', userId: 'u-1' },
+        ]);
+
+        const res = await service.listMembers('proj-1', 'u-1');
+        expect(res).toHaveLength(1);
+      });
+    });
+
+    describe('addMember', () => {
+      it('should throw NotFoundException if target user does not exist', async () => {
+        mockPrismaService.project.findUnique.mockResolvedValue({
+          id: 'proj-1',
+          workspaceId: 'ws-1',
+          organizationId: 'org-1',
+        });
+        mockPrismaService.projectMember.findUnique.mockResolvedValue({
+          role: ProjectRole.MANAGER,
+        });
+        mockPrismaService.user.findUnique.mockResolvedValue(null);
+
+        await expect(
+          service.addMember('proj-1', 'actor-1', {
+            userId: 'target-u',
+            role: ProjectRole.MEMBER,
+          }),
+        ).rejects.toThrow(NotFoundException);
+      });
+
+      it('should throw BadRequestException if target user is not in workspace', async () => {
+        mockPrismaService.project.findUnique.mockResolvedValue({
+          id: 'proj-1',
+          workspaceId: 'ws-1',
+          organizationId: 'org-1',
+        });
+        mockPrismaService.projectMember.findUnique.mockResolvedValue({
+          role: ProjectRole.MANAGER,
+        });
+        mockPrismaService.user.findUnique.mockResolvedValue({ id: 'target-u' });
+        mockPrismaService.workspaceMember.findUnique.mockResolvedValue(null);
+        mockPrismaService.organizationMember.findUnique.mockResolvedValue(null);
+
+        await expect(
+          service.addMember('proj-1', 'actor-1', {
+            userId: 'target-u',
+            role: ProjectRole.MEMBER,
+          }),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it('should throw ConflictException if target user is already a member', async () => {
+        mockPrismaService.project.findUnique.mockResolvedValue({
+          id: 'proj-1',
+          workspaceId: 'ws-1',
+          organizationId: 'org-1',
+        });
+        mockPrismaService.projectMember.findUnique
+          .mockResolvedValueOnce({ role: ProjectRole.MANAGER }) // actor access check
+          .mockResolvedValueOnce({ id: 'existing-m' }); // target user duplicate check
+        mockPrismaService.user.findUnique.mockResolvedValue({ id: 'target-u' });
+        mockPrismaService.workspaceMember.findUnique.mockResolvedValue({ id: 'ws-m' });
+
+        await expect(
+          service.addMember('proj-1', 'actor-1', {
+            userId: 'target-u',
+            role: ProjectRole.MEMBER,
+          }),
+        ).rejects.toThrow(ConflictException);
+      });
+
+      it('should add member successfully if user is in workspace', async () => {
+        mockPrismaService.project.findUnique.mockResolvedValue({
+          id: 'proj-1',
+          workspaceId: 'ws-1',
+          organizationId: 'org-1',
+        });
+        mockPrismaService.projectMember.findUnique
+          .mockResolvedValueOnce({ role: ProjectRole.MANAGER })
+          .mockResolvedValueOnce(null);
+        mockPrismaService.user.findUnique.mockResolvedValue({ id: 'target-u' });
+        mockPrismaService.workspaceMember.findUnique.mockResolvedValue({ id: 'ws-m' });
+        mockPrismaService.projectMember.create.mockResolvedValue({
+          id: 'm-new',
+          userId: 'target-u',
+          role: ProjectRole.MEMBER,
+        });
+
+        const res = await service.addMember('proj-1', 'actor-1', {
+          userId: 'target-u',
+          role: ProjectRole.MEMBER,
+        });
+        expect(res.id).toBe('m-new');
+      });
+    });
+
+    describe('updateMemberRole', () => {
+      it('should throw BadRequestException when demoting the only manager', async () => {
+        mockPrismaService.project.findUnique.mockResolvedValue({
+          id: 'proj-1',
+          workspaceId: 'ws-1',
+          organizationId: 'org-1',
+        });
+        mockPrismaService.projectMember.findUnique
+          .mockResolvedValueOnce({ role: ProjectRole.MANAGER }) // actor check
+          .mockResolvedValueOnce({
+            id: 'm-1',
+            projectId: 'proj-1',
+            role: ProjectRole.MANAGER,
+          }); // member find
+        mockPrismaService.projectMember.count.mockResolvedValue(1);
+
+        await expect(
+          service.updateMemberRole('proj-1', 'm-1', 'actor-1', {
+            role: ProjectRole.VIEWER,
+          }),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it('should successfully update role when multiple managers exist', async () => {
+        mockPrismaService.project.findUnique.mockResolvedValue({
+          id: 'proj-1',
+          workspaceId: 'ws-1',
+          organizationId: 'org-1',
+        });
+        mockPrismaService.projectMember.findUnique
+          .mockResolvedValueOnce({ role: ProjectRole.MANAGER })
+          .mockResolvedValueOnce({
+            id: 'm-1',
+            projectId: 'proj-1',
+            role: ProjectRole.MANAGER,
+          });
+        mockPrismaService.projectMember.count.mockResolvedValue(2);
+        mockPrismaService.projectMember.update.mockResolvedValue({
+          id: 'm-1',
+          role: ProjectRole.VIEWER,
+        });
+
+        const res = await service.updateMemberRole('proj-1', 'm-1', 'actor-1', {
+          role: ProjectRole.VIEWER,
+        });
+        expect(res.role).toBe(ProjectRole.VIEWER);
+      });
+    });
+
+    describe('removeMember', () => {
+      it('should throw BadRequestException when removing the only manager', async () => {
+        mockPrismaService.projectMember.findUnique.mockResolvedValue({
+          id: 'm-1',
+          projectId: 'proj-1',
+          userId: 'actor-1',
+          role: ProjectRole.MANAGER,
+        });
+        mockPrismaService.projectMember.count.mockResolvedValue(1);
+
+        await expect(
+          service.removeMember('proj-1', 'm-1', 'actor-1'),
+        ).rejects.toThrow(BadRequestException);
+      });
+
+      it('should allow member removal if actor has permission and manager count > 1', async () => {
+        mockPrismaService.projectMember.findUnique.mockResolvedValue({
+          id: 'm-2',
+          projectId: 'proj-1',
+          userId: 'other-u',
+          role: ProjectRole.MEMBER,
+        });
+        mockPrismaService.project.findUnique.mockResolvedValue({
+          id: 'proj-1',
+          workspaceId: 'ws-1',
+          organizationId: 'org-1',
+        });
+        mockPrismaService.workspaceMember.findUnique.mockResolvedValue({
+          role: WorkspaceRole.OWNER,
+        });
+        mockPrismaService.projectMember.delete.mockResolvedValue({});
+
+        const res = await service.removeMember('proj-1', 'm-2', 'actor-1');
+        expect(res.success).toBe(true);
       });
     });
   });

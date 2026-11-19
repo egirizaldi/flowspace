@@ -9,6 +9,8 @@ import { PrismaService } from '../../database/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
 import { QueryProjectsDto } from './dto/query-projects.dto';
+import { AddProjectMemberDto } from './dto/add-project-member.dto';
+import { UpdateProjectMemberDto } from './dto/update-project-member.dto';
 import {
   ProjectLifecycleStatus,
   ProjectRole,
@@ -494,6 +496,182 @@ export class ProjectsService {
     return {
       success: true,
       message: 'Project deleted successfully',
+    };
+  }
+
+  async listMembers(projectId: string, userId: string) {
+    await this.checkProjectAccess(projectId, userId, false);
+
+    return this.prisma.projectMember.findMany({
+      where: { projectId },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatarUrl: true,
+          },
+        },
+      },
+      orderBy: { joinedAt: 'asc' },
+    });
+  }
+
+  async addMember(
+    projectId: string,
+    actorId: string,
+    dto: AddProjectMemberDto,
+  ) {
+    const { project } = await this.checkProjectAccess(projectId, actorId, true);
+
+    const targetUser = await this.prisma.user.findUnique({
+      where: { id: dto.userId },
+    });
+    if (!targetUser) {
+      throw new NotFoundException('User not found');
+    }
+
+    const wsMember = await this.prisma.workspaceMember.findUnique({
+      where: {
+        workspaceId_userId: {
+          workspaceId: project.workspaceId,
+          userId: dto.userId,
+        },
+      },
+    });
+
+    if (!wsMember) {
+      const orgMember = await this.prisma.organizationMember.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: project.organizationId,
+            userId: dto.userId,
+          },
+        },
+      });
+
+      if (!orgMember) {
+        throw new BadRequestException(
+          'User must be a member of the workspace before being added to the project',
+        );
+      }
+    }
+
+    const existingMember = await this.prisma.projectMember.findUnique({
+      where: {
+        projectId_userId: {
+          projectId,
+          userId: dto.userId,
+        },
+      },
+    });
+    if (existingMember) {
+      throw new ConflictException('User is already a member of this project');
+    }
+
+    return this.prisma.projectMember.create({
+      data: {
+        projectId,
+        userId: dto.userId,
+        role: dto.role,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+  }
+
+  async updateMemberRole(
+    projectId: string,
+    memberId: string,
+    actorId: string,
+    dto: UpdateProjectMemberDto,
+  ) {
+    await this.checkProjectAccess(projectId, actorId, true);
+
+    const member = await this.prisma.projectMember.findUnique({
+      where: { id: memberId },
+    });
+    if (!member || member.projectId !== projectId) {
+      throw new NotFoundException('Project member not found');
+    }
+
+    if (member.role === ProjectRole.MANAGER && dto.role !== ProjectRole.MANAGER) {
+      const managerCount = await this.prisma.projectMember.count({
+        where: {
+          projectId,
+          role: ProjectRole.MANAGER,
+        },
+      });
+      if (managerCount <= 1) {
+        throw new BadRequestException(
+          'Cannot demote the only Manager in this project. Assign another Manager first.',
+        );
+      }
+    }
+
+    return this.prisma.projectMember.update({
+      where: { id: memberId },
+      data: { role: dto.role },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+  }
+
+  async removeMember(
+    projectId: string,
+    memberId: string,
+    actorId: string,
+  ) {
+    const member = await this.prisma.projectMember.findUnique({
+      where: { id: memberId },
+    });
+    if (!member || member.projectId !== projectId) {
+      throw new NotFoundException('Project member not found');
+    }
+
+    // Allow self-removal or manage permission
+    if (member.userId !== actorId) {
+      await this.checkProjectAccess(projectId, actorId, true);
+    }
+
+    if (member.role === ProjectRole.MANAGER) {
+      const managerCount = await this.prisma.projectMember.count({
+        where: {
+          projectId,
+          role: ProjectRole.MANAGER,
+        },
+      });
+      if (managerCount <= 1) {
+        throw new BadRequestException(
+          'Cannot remove the only Manager in this project. Assign another Manager first.',
+        );
+      }
+    }
+
+    await this.prisma.projectMember.delete({
+      where: { id: memberId },
+    });
+
+    return {
+      success: true,
+      message: 'Member removed from project successfully',
     };
   }
 }
