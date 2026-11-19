@@ -1,6 +1,6 @@
 'use client';
 
-import React, { use } from 'react';
+import React, { useState, use } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -13,10 +13,14 @@ import {
   Plus,
   ArrowRight,
   Clock,
+  UserPlus,
 } from 'lucide-react';
 import { useOrganizations } from '@/hooks/use-organization';
 import { useOrganizationWorkspaces, useWorkspace } from '@/hooks/use-workspace';
+import { useWorkspaceInvitations } from '@/hooks/use-invitation';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
+import { InviteMemberModal } from '@/components/invitations/invite-member-modal';
+import { PendingInvitationsList } from '@/components/invitations/pending-invitations-list';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -40,6 +44,15 @@ export default function WorkspaceOverviewPage({ params }: PageProps) {
   const { data: wsDetail, isLoading: isDetailLoading } = useWorkspace(
     currentWs?.id || null,
   );
+
+  const { data: pendingInvitations = [] } = useWorkspaceInvitations(
+    currentWs?.id || null,
+  );
+
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+
+  const isOwnerOrAdmin =
+    currentWs?.userRole === 'OWNER' || currentWs?.userRole === 'ADMIN';
 
   if (isOrgsLoading || isWorkspacesLoading || isDetailLoading) {
     return (
@@ -103,6 +116,16 @@ export default function WorkspaceOverviewPage({ params }: PageProps) {
           </div>
 
           <div className="flex items-center gap-3 self-start md:self-auto">
+            {isOwnerOrAdmin && (
+              <Button
+                variant="outline"
+                onClick={() => setInviteModalOpen(true)}
+                className="flex items-center gap-2"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Invite Member</span>
+              </Button>
+            )}
             <Button
               variant="outline"
               onClick={() => router.push(`/${currentOrg.slug}/${currentWs.slug}/settings`)}
@@ -205,7 +228,31 @@ export default function WorkspaceOverviewPage({ params }: PageProps) {
             </div>
           </div>
         )}
+
+        {/* Pending Invitations Section */}
+        {isOwnerOrAdmin && (
+          <div className="space-y-4 pt-4 border-t border-border">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">
+                Pending Invitations ({pendingInvitations.length})
+              </h2>
+            </div>
+            <PendingInvitationsList
+              invitations={pendingInvitations}
+              workspaceId={currentWs.id}
+              canManage={isOwnerOrAdmin}
+            />
+          </div>
+        )}
       </div>
+
+      <InviteMemberModal
+        isOpen={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+        scope="workspace"
+        targetId={currentWs.id}
+        targetName={currentWs.name}
+      />
     </DashboardLayout>
   );
 }

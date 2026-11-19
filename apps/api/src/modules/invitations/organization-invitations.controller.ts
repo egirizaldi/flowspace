@@ -1,6 +1,7 @@
 import {
   Controller,
   Post,
+  Get,
   Param,
   Body,
   UseGuards,
@@ -66,6 +67,30 @@ export class OrganizationInvitationsController {
       success: true,
       message: 'Invitation created successfully',
       data: result,
+    };
+  }
+
+  @Get()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'List pending invitations for the organization' })
+  @ApiResponse({
+    status: 200,
+    description: 'Pending invitations retrieved successfully',
+    type: ApiResponseDto,
+  })
+  async list(
+    @Param('organizationId', ParseUUIDPipe) organizationId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    const list = await this.invitationsService.listByOrganization(
+      organizationId,
+      userId,
+    );
+
+    return {
+      success: true,
+      message: 'Invitations retrieved successfully',
+      data: list,
     };
   }
 }

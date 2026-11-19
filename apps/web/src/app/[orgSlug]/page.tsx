@@ -12,11 +12,15 @@ import {
   Shield,
   Loader2,
   Building2,
+  UserPlus,
 } from 'lucide-react';
 import { useOrganizations, useOrganization } from '@/hooks/use-organization';
 import { useOrganizationWorkspaces } from '@/hooks/use-workspace';
+import { useOrganizationInvitations } from '@/hooks/use-invitation';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { CreateWorkspaceModal } from '@/components/workspaces/create-workspace-modal';
+import { InviteMemberModal } from '@/components/invitations/invite-member-modal';
+import { PendingInvitationsList } from '@/components/invitations/pending-invitations-list';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -40,7 +44,15 @@ export default function OrganizationOverviewPage({ params }: PageProps) {
   const { data: workspaces = [], isLoading: isWorkspacesLoading } =
     useOrganizationWorkspaces(currentOrg?.id || null);
 
+  const { data: pendingInvitations = [] } = useOrganizationInvitations(
+    currentOrg?.id || null,
+  );
+
   const [createWsModalOpen, setCreateWsModalOpen] = useState(false);
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+
+  const isOwnerOrAdmin =
+    currentOrg?.userRole === 'OWNER' || currentOrg?.userRole === 'ADMIN';
 
   if (isOrgsLoading || isDetailLoading) {
     return (
@@ -104,6 +116,16 @@ export default function OrganizationOverviewPage({ params }: PageProps) {
           </div>
 
           <div className="flex items-center gap-3 self-start md:self-auto">
+            {isOwnerOrAdmin && (
+              <Button
+                variant="outline"
+                onClick={() => setInviteModalOpen(true)}
+                className="flex items-center gap-2"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>Invite Member</span>
+              </Button>
+            )}
             <Button
               onClick={() => setCreateWsModalOpen(true)}
               className="flex items-center gap-2"
@@ -250,6 +272,22 @@ export default function OrganizationOverviewPage({ params }: PageProps) {
             </div>
           </div>
         )}
+
+        {/* Pending Invitations Section */}
+        {isOwnerOrAdmin && (
+          <div className="space-y-4 pt-4 border-t border-border">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-foreground">
+                Pending Invitations ({pendingInvitations.length})
+              </h2>
+            </div>
+            <PendingInvitationsList
+              invitations={pendingInvitations}
+              organizationId={currentOrg.id}
+              canManage={isOwnerOrAdmin}
+            />
+          </div>
+        )}
       </div>
 
       <CreateWorkspaceModal
@@ -257,6 +295,14 @@ export default function OrganizationOverviewPage({ params }: PageProps) {
         onClose={() => setCreateWsModalOpen(false)}
         organizationId={currentOrg.id}
         organizationSlug={currentOrg.slug}
+      />
+
+      <InviteMemberModal
+        isOpen={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+        scope="organization"
+        targetId={currentOrg.id}
+        targetName={currentOrg.name}
       />
     </DashboardLayout>
   );

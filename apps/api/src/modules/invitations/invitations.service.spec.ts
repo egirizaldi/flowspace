@@ -46,6 +46,7 @@ describe('InvitationsService', () => {
     invitation: {
       findUnique: jest.fn(),
       findFirst: jest.fn(),
+      findMany: jest.fn(),
       create: jest.fn(),
       update: jest.fn(),
     },
@@ -360,6 +361,81 @@ describe('InvitationsService', () => {
           where: { id: 'inv-1' },
           data: expect.objectContaining({
             status: InvitationStatus.ACCEPTED,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('listByOrganization', () => {
+    it('should throw ForbiddenException if user is not member of organization', async () => {
+      mockPrismaService.organizationMember.findUnique.mockResolvedValue(null);
+      await expect(
+        service.listByOrganization('org-1', 'user-1'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should return pending invitations for organization', async () => {
+      mockPrismaService.organizationMember.findUnique.mockResolvedValue({
+        id: 'member-1',
+      });
+      mockPrismaService.invitation.findMany.mockResolvedValue([
+        { id: 'inv-1', email: 'test@example.com' },
+      ]);
+
+      const result = await service.listByOrganization('org-1', 'user-1');
+      expect(result).toHaveLength(1);
+      expect(mockPrismaService.invitation.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            organizationId: 'org-1',
+            status: InvitationStatus.PENDING,
+          }),
+        }),
+      );
+    });
+  });
+
+  describe('listByWorkspace', () => {
+    it('should throw NotFoundException if workspace does not exist', async () => {
+      mockPrismaService.workspace.findUnique.mockResolvedValue(null);
+      await expect(
+        service.listByWorkspace('ws-1', 'user-1'),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ForbiddenException if user is not member of workspace or org', async () => {
+      mockPrismaService.workspace.findUnique.mockResolvedValue({
+        id: 'ws-1',
+        organizationId: 'org-1',
+      });
+      mockPrismaService.workspaceMember.findUnique.mockResolvedValue(null);
+      mockPrismaService.organizationMember.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.listByWorkspace('ws-1', 'user-1'),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should return pending invitations for workspace', async () => {
+      mockPrismaService.workspace.findUnique.mockResolvedValue({
+        id: 'ws-1',
+        organizationId: 'org-1',
+      });
+      mockPrismaService.workspaceMember.findUnique.mockResolvedValue({
+        id: 'member-1',
+      });
+      mockPrismaService.invitation.findMany.mockResolvedValue([
+        { id: 'inv-2', email: 'ws-invite@example.com' },
+      ]);
+
+      const result = await service.listByWorkspace('ws-1', 'user-1');
+      expect(result).toHaveLength(1);
+      expect(mockPrismaService.invitation.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            workspaceId: 'ws-1',
+            status: InvitationStatus.PENDING,
           }),
         }),
       );

@@ -681,4 +681,87 @@ export class InvitationsService {
       return updated;
     });
   }
+
+  async listByOrganization(organizationId: string, userId: string) {
+    const orgMember = await this.prisma.organizationMember.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId,
+          userId,
+        },
+      },
+    });
+    if (!orgMember) {
+      throw new ForbiddenException(
+        'You do not have access to this organization',
+      );
+    }
+
+    return this.prisma.invitation.findMany({
+      where: {
+        organizationId,
+        status: InvitationStatus.PENDING,
+        expiresAt: { gt: new Date() },
+      },
+      include: {
+        inviter: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async listByWorkspace(workspaceId: string, userId: string) {
+    const ws = await this.prisma.workspace.findUnique({
+      where: { id: workspaceId },
+    });
+    if (!ws) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    const wsMember = await this.prisma.workspaceMember.findUnique({
+      where: {
+        workspaceId_userId: {
+          workspaceId,
+          userId,
+        },
+      },
+    });
+    if (!wsMember) {
+      const orgMember = await this.prisma.organizationMember.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: ws.organizationId,
+            userId,
+          },
+        },
+      });
+      if (!orgMember) {
+        throw new ForbiddenException('You do not have access to this workspace');
+      }
+    }
+
+    return this.prisma.invitation.findMany({
+      where: {
+        workspaceId,
+        status: InvitationStatus.PENDING,
+        expiresAt: { gt: new Date() },
+      },
+      include: {
+        inviter: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
 }

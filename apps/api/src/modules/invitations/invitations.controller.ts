@@ -2,12 +2,15 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
+  Param,
   Query,
   Body,
   UseGuards,
   HttpCode,
   HttpStatus,
   BadRequestException,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -90,6 +93,28 @@ export class InvitationsController {
       success: true,
       message: 'Invitation accepted successfully',
       data: accepted,
+    };
+  }
+
+  @Delete(':invitationId')
+  @UseGuards(AuthGuard)
+  @ApiCookieAuth('flowspace_session')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Revoke a pending invitation' })
+  @ApiResponse({
+    status: 200,
+    description: 'Invitation revoked successfully',
+    type: ApiResponseDto,
+  })
+  async revoke(
+    @CurrentUser('id') userId: string,
+    @Param('invitationId', ParseUUIDPipe) invitationId: string,
+  ) {
+    await this.invitationsService.revoke(invitationId, userId);
+
+    return {
+      success: true,
+      message: 'Invitation revoked successfully',
     };
   }
 }
