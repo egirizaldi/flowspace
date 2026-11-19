@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import * as schemas from '../schemas/index.js';
+import * as schemas from '../schemas/index';
 
-export * from '../constants/index.js';
+export * from '../constants/index';
 
 // Auth types
 export type RegisterInput = z.infer<typeof schemas.registerSchema>;

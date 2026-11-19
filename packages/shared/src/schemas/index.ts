@@ -5,7 +5,7 @@ import {
   PROJECT_STATUS_CATEGORIES,
   TASK_PRIORITIES,
   WORKSPACE_ROLES,
-} from '../constants/index.js';
+} from '../constants/index';
 
 // ==========================================
 // Authentication Schemas

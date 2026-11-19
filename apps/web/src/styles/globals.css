@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* FlowSpace Dark Theme (Default per Design System) */
+    --background: #0b0d10;
+    --foreground: #f1f3f5;
+    --surface: #11151b;
+    --surface-elevated: #181e27;
+    --border: #252c36;
+    --primary: #7c6cf2;
+    --primary-hover: #6b5ce7;
+    --primary-foreground: #ffffff;
+    --muted: #1e242d;
+    --muted-foreground: #9aa4b2;
+    --radius: 0.5rem;
+  }
+
+  .light {
+    /* FlowSpace Light Theme */
+    --background: #f8fafc;
+    --foreground: #172033;
+    --surface: #ffffff;
+    --surface-elevated: #ffffff;
+    --border: #e2e8f0;
+    --primary: #6d5ce7;
+    --primary-hover: #5a48dc;
+    --primary-foreground: #ffffff;
+    --muted: #f1f5f9;
+    --muted-foreground: #64748b;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
