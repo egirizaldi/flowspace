@@ -18,6 +18,7 @@ interface CreateTaskModalProps {
   projectKey: string;
   statuses?: Array<{ id: string; name: string; color: string; isDefault?: boolean }>;
   members?: Array<{ userId: string; user: { id: string; name: string; email: string; avatarUrl?: string | null } }>;
+  initialStatusId?: string | null;
   onSuccess?: (taskId: string) => void;
 }
 
@@ -28,16 +29,18 @@ export function CreateTaskModal({
   projectKey,
   statuses = [],
   members = [],
+  initialStatusId,
   onSuccess,
 }: CreateTaskModalProps) {
   const createTask = useCreateTask(projectId);
   const [serverError, setServerError] = useState<string | null>(null);
 
-  const defaultStatusId = statuses.find((s) => s.isDefault)?.id || statuses[0]?.id;
+  const defaultStatusId = initialStatusId || statuses.find((s) => s.isDefault)?.id || statuses[0]?.id;
 
   const {
     register,
     handleSubmit,
+    setValue,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<CreateTaskInput>({
@@ -51,6 +54,15 @@ export function CreateTaskModal({
       dueDate: null,
     },
   });
+
+  React.useEffect(() => {
+    if (isOpen) {
+      const targetStatus = initialStatusId || statuses.find((s) => s.isDefault)?.id || statuses[0]?.id;
+      if (targetStatus) {
+        setValue('statusId', targetStatus);
+      }
+    }
+  }, [isOpen, initialStatusId, statuses, setValue]);
 
   const onSubmit = async (data: CreateTaskInput) => {
     setServerError(null);

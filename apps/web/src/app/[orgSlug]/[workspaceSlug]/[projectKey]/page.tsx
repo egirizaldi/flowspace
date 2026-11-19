@@ -33,6 +33,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { CreateTaskModal } from '@/components/tasks/create-task-modal';
 import { TaskDetailModal } from '@/components/tasks/task-detail-modal';
+import { KanbanBoard } from '@/components/kanban/kanban-board';
 import { TaskPriority } from '@flowspace/shared';
 
 interface PageProps {
@@ -48,10 +49,13 @@ export default function ProjectOverviewPage({ params }: PageProps) {
   const { orgSlug, workspaceSlug, projectKey } = resolvedParams;
   const router = useRouter();
 
+  const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
+  const [createTaskStatusId, setCreateTaskStatusId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [taskSearch, setTaskSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
 
   const { data: organizations = [], isLoading: isOrgsLoading } = useOrganizations();
   const currentOrg = organizations.find((o) => o.slug === orgSlug);
@@ -111,9 +115,12 @@ export default function ProjectOverviewPage({ params }: PageProps) {
     );
   }
 
-  // Filter tasks
+  // Filter tasks for list view
   const filteredTasks = tasks.filter((t) => {
     if (statusFilter !== 'ALL' && t.statusId !== statusFilter) {
+      return false;
+    }
+    if (priorityFilter !== 'ALL' && t.priority !== priorityFilter) {
       return false;
     }
     if (taskSearch.trim()) {
@@ -192,7 +199,10 @@ export default function ProjectOverviewPage({ params }: PageProps) {
 
           <div className="flex items-center gap-3 self-start md:self-auto">
             <Button
-              onClick={() => setIsCreateTaskOpen(true)}
+              onClick={() => {
+                setCreateTaskStatusId(null);
+                setIsCreateTaskOpen(true);
+              }}
               className="flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
@@ -260,24 +270,55 @@ export default function ProjectOverviewPage({ params }: PageProps) {
           </Card>
         </div>
 
-        {/* Tasks Section */}
+        {/* Tasks & Kanban Section */}
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                <span>Tasks</span>
-                <span className="text-xs font-normal text-muted-foreground font-mono">
-                  ({filteredTasks.length})
-                </span>
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                All tasks, subtasks, and issues in this project.
-              </p>
+          {/* Header Row: Title + View Switcher + Filter Controls */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+            <div className="flex items-center gap-4">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                  <span>Tasks</span>
+                  <span className="text-xs font-normal text-muted-foreground font-mono">
+                    ({tasks.length})
+                  </span>
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Manage issues, backlog, and sprint workflow.
+                </p>
+              </div>
+
+              {/* View Switcher: Board vs List */}
+              <div className="flex items-center bg-surface border border-border rounded-lg p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('board')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    viewMode === 'board'
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'
+                  }`}
+                >
+                  <Kanban className="w-3.5 h-3.5" />
+                  <span>Board</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('list')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                    viewMode === 'list'
+                      ? 'bg-primary text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-surface-elevated'
+                  }`}
+                >
+                  <ListTodo className="w-3.5 h-3.5" />
+                  <span>List</span>
+                </button>
+              </div>
             </div>
 
             {/* Filter controls */}
-            <div className="flex items-center gap-2">
-              <div className="relative w-48 sm:w-64">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="relative w-40 sm:w-56">
                 <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search tasks..."
@@ -287,23 +328,50 @@ export default function ProjectOverviewPage({ params }: PageProps) {
                 />
               </div>
 
+              {viewMode === 'list' && (
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="h-8 rounded-md border border-border bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                >
+                  <option value="ALL">All Statuses</option>
+                  {(project.statuses || []).map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+
               <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
                 className="h-8 rounded-md border border-border bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
               >
-                <option value="ALL">All Statuses</option>
-                {(project.statuses || []).map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
+                <option value="ALL">All Priorities</option>
+                <option value="URGENT">Urgent</option>
+                <option value="HIGH">High</option>
+                <option value="MEDIUM">Medium</option>
+                <option value="LOW">Low</option>
               </select>
             </div>
           </div>
 
-          {/* Task Table / List */}
-          {isTasksLoading ? (
+          {/* View Content: Kanban Board View OR List View */}
+          {viewMode === 'board' ? (
+            <KanbanBoard
+              projectId={project.id}
+              filters={{
+                search: taskSearch.trim() || undefined,
+                priority: priorityFilter !== 'ALL' ? priorityFilter : undefined,
+              }}
+              onTaskClick={(id) => setSelectedTaskId(id)}
+              onAddTaskClick={(statusId) => {
+                setCreateTaskStatusId(statusId);
+                setIsCreateTaskOpen(true);
+              }}
+            />
+          ) : isTasksLoading ? (
             <div className="h-48 rounded-xl border border-border bg-surface flex items-center justify-center text-muted-foreground">
               <Loader2 className="w-6 h-6 animate-spin text-primary" />
             </div>
@@ -311,19 +379,22 @@ export default function ProjectOverviewPage({ params }: PageProps) {
             <div className="p-10 rounded-xl border border-dashed border-border bg-surface text-center">
               <ListTodo className="w-10 h-10 text-muted-foreground/60 mx-auto mb-3" />
               <h3 className="text-sm font-semibold text-foreground">
-                {taskSearch || statusFilter !== 'ALL'
+                {taskSearch || statusFilter !== 'ALL' || priorityFilter !== 'ALL'
                   ? 'No matching tasks found'
                   : 'No tasks created yet'}
               </h3>
               <p className="text-xs text-muted-foreground mt-1 mb-4 max-w-sm mx-auto">
-                {taskSearch || statusFilter !== 'ALL'
+                {taskSearch || statusFilter !== 'ALL' || priorityFilter !== 'ALL'
                   ? 'Try clearing or modifying your search filters.'
                   : 'Get started by creating your first task in this project.'}
               </p>
-              {!(taskSearch || statusFilter !== 'ALL') && (
+              {!(taskSearch || statusFilter !== 'ALL' || priorityFilter !== 'ALL') && (
                 <Button
                   size="sm"
-                  onClick={() => setIsCreateTaskOpen(true)}
+                  onClick={() => {
+                    setCreateTaskStatusId(null);
+                    setIsCreateTaskOpen(true);
+                  }}
                   className="flex items-center gap-1.5 mx-auto"
                 >
                   <Plus className="w-4 h-4" />
@@ -503,11 +574,15 @@ export default function ProjectOverviewPage({ params }: PageProps) {
       {/* Modals */}
       <CreateTaskModal
         isOpen={isCreateTaskOpen}
-        onClose={() => setIsCreateTaskOpen(false)}
+        onClose={() => {
+          setIsCreateTaskOpen(false);
+          setCreateTaskStatusId(null);
+        }}
         projectId={project.id}
         projectKey={project.key}
         statuses={project.statuses || []}
         members={projectDetail?.members || []}
+        initialStatusId={createTaskStatusId}
         onSuccess={(taskId) => {
           setSelectedTaskId(taskId);
         }}

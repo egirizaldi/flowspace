@@ -100,6 +100,67 @@ export interface ProjectLabelItem {
   createdAt: string;
 }
 
+export interface KanbanBoardTaskItem {
+  id: string;
+  projectId: string;
+  parentTaskId?: string | null;
+  taskNumber: number;
+  taskKey: string;
+  title: string;
+  description?: string | null;
+  priority: TaskPriority;
+  statusId: string;
+  assigneeId?: string | null;
+  startDate?: string | null;
+  dueDate?: string | null;
+  position: string | number;
+  version: number;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  completedAt?: string | null;
+  assignee?: {
+    id: string;
+    name: string;
+    email: string;
+    avatarUrl?: string | null;
+  } | null;
+  labels?: Array<{
+    id: string;
+    name: string;
+    color: string;
+  }>;
+  _count?: {
+    comments: number;
+    attachments: number;
+    subtasks: number;
+  };
+}
+
+export interface KanbanColumnItem {
+  id: string;
+  name: string;
+  category: string;
+  color: string;
+  position: number;
+  isDefault: boolean;
+  tasks: KanbanBoardTaskItem[];
+}
+
+export interface KanbanBoardData {
+  projectId: string;
+  projectKey: string;
+  projectName: string;
+  columns: KanbanColumnItem[];
+}
+
+export interface QueryBoardOptions {
+  assigneeId?: string;
+  priority?: string;
+  search?: string;
+  includeSubtasks?: boolean;
+}
+
 export interface TaskActivityItem {
   id: string;
   organizationId: string;
@@ -185,6 +246,9 @@ export function useCreateTask(projectId: string) {
         queryKey: ['tasks', 'project', projectId],
       });
       queryClient.invalidateQueries({
+        queryKey: ['board', 'project', projectId],
+      });
+      queryClient.invalidateQueries({
         queryKey: ['project', projectId],
       });
     },
@@ -204,6 +268,9 @@ export function useUpdateTask(taskId: string, projectId?: string) {
       if (projectId) {
         queryClient.invalidateQueries({
           queryKey: ['tasks', 'project', projectId],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ['board', 'project', projectId],
         });
       }
       queryClient.invalidateQueries({
@@ -229,6 +296,9 @@ export function useUpdateTaskStatus(taskId: string, projectId?: string) {
       if (projectId) {
         queryClient.invalidateQueries({
           queryKey: ['tasks', 'project', projectId],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ['board', 'project', projectId],
         });
       }
       queryClient.invalidateQueries({
@@ -257,6 +327,9 @@ export function useAssignTask(taskId: string, projectId?: string) {
         queryClient.invalidateQueries({
           queryKey: ['tasks', 'project', projectId],
         });
+        queryClient.invalidateQueries({
+          queryKey: ['board', 'project', projectId],
+        });
       }
       queryClient.invalidateQueries({
         queryKey: ['task-activities', taskId],
@@ -280,6 +353,9 @@ export function useDeleteTask(taskId: string, projectId?: string) {
       if (projectId) {
         queryClient.invalidateQueries({
           queryKey: ['tasks', 'project', projectId],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ['board', 'project', projectId],
         });
       }
     },
@@ -336,6 +412,9 @@ export function useAttachTaskLabel(taskId: string, projectId?: string) {
         queryClient.invalidateQueries({
           queryKey: ['tasks', 'project', projectId],
         });
+        queryClient.invalidateQueries({
+          queryKey: ['board', 'project', projectId],
+        });
       }
     },
   });
@@ -354,6 +433,9 @@ export function useDetachTaskLabel(taskId: string, projectId?: string) {
       if (projectId) {
         queryClient.invalidateQueries({
           queryKey: ['tasks', 'project', projectId],
+        });
+        queryClient.invalidateQueries({
+          queryKey: ['board', 'project', projectId],
         });
       }
     },
@@ -377,8 +459,35 @@ export function useCreateSubtask(parentTaskId: string, projectId?: string) {
         queryClient.invalidateQueries({
           queryKey: ['tasks', 'project', projectId],
         });
+        queryClient.invalidateQueries({
+          queryKey: ['board', 'project', projectId],
+        });
       }
     },
+  });
+}
+
+export function useKanbanBoard(
+  projectId?: string | null,
+  options?: QueryBoardOptions,
+) {
+  const queryParams = new URLSearchParams();
+  if (options?.assigneeId) queryParams.set('assigneeId', options.assigneeId);
+  if (options?.priority) queryParams.set('priority', options.priority);
+  if (options?.search) queryParams.set('search', options.search);
+  if (options?.includeSubtasks) queryParams.set('includeSubtasks', 'true');
+  const queryStr = queryParams.toString();
+
+  return useQuery({
+    queryKey: ['board', 'project', projectId, options],
+    queryFn: async () => {
+      if (!projectId) return null;
+      const url = `/projects/${projectId}/board${queryStr ? `?${queryStr}` : ''}`;
+      const res = await apiClient.get<KanbanBoardData>(url);
+      return res.data;
+    },
+    enabled: Boolean(projectId),
+    staleTime: 15 * 1000,
   });
 }
 
