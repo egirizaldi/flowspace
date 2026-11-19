@@ -9,6 +9,7 @@ describe('ProjectTasksController', () => {
   let service: TasksService;
 
   const mockTasksService = {
+    findProjectTasks: jest.fn(),
     createTask: jest.fn(),
   };
 
@@ -32,6 +33,35 @@ describe('ProjectTasksController', () => {
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
+  });
+
+  describe('listTasks', () => {
+    it('should list tasks with metadata', async () => {
+      const mockResult = {
+        tasks: [{ id: 't-1', title: 'Task 1' }],
+        total: 1,
+        page: 1,
+        limit: 20,
+        totalPages: 1,
+      };
+      mockTasksService.findProjectTasks.mockResolvedValue(mockResult);
+
+      const res = await controller.listTasks('p-1', { page: 1 }, 'u-1');
+      expect(res).toEqual({
+        success: true,
+        message: 'Tasks retrieved successfully',
+        data: mockResult.tasks,
+        meta: {
+          total: 1,
+          page: 1,
+          limit: 20,
+          totalPages: 1,
+        },
+      });
+      expect(mockTasksService.findProjectTasks).toHaveBeenCalledWith('p-1', 'u-1', {
+        page: 1,
+      });
+    });
   });
 
   describe('createTask', () => {
