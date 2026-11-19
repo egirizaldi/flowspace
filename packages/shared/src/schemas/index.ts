@@ -3,6 +3,7 @@ import {
   ORGANIZATION_ROLES,
   PROJECT_ROLES,
   PROJECT_STATUS_CATEGORIES,
+  PROJECT_LIFECYCLE_STATUSES,
   TASK_PRIORITIES,
   WORKSPACE_ROLES,
 } from '../constants/index';
@@ -108,6 +109,7 @@ export const createProjectSchema = z.object({
 export const updateProjectSchema = z.object({
   name: z.string().min(2).max(180).optional(),
   description: z.string().max(1000).optional().nullable(),
+  status: z.enum(PROJECT_LIFECYCLE_STATUSES).optional(),
   startDate: z.string().date().optional().nullable(),
   dueDate: z.string().date().optional().nullable(),
 });

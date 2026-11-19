@@ -1,6 +1,10 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api-client';
-import { CreateWorkspaceInput, UpdateWorkspaceInput } from '@flowspace/shared';
+import {
+  CreateWorkspaceInput,
+  UpdateWorkspaceInput,
+  WorkspaceRole,
+} from '@flowspace/shared';
 
 export interface OrganizationWorkspace {
   id: string;
@@ -11,7 +15,7 @@ export interface OrganizationWorkspace {
   createdBy: string;
   createdAt: string;
   updatedAt: string;
-  userRole: 'OWNER' | 'ADMIN' | 'MEMBER';
+  userRole: WorkspaceRole;
   joinedAt: string;
   _count: {
     members: number;
@@ -20,12 +24,12 @@ export interface OrganizationWorkspace {
 }
 
 export interface WorkspaceDetail extends OrganizationWorkspace {
-  currentUserRole: 'OWNER' | 'ADMIN' | 'MEMBER';
+  currentUserRole: WorkspaceRole;
   members: Array<{
     id: string;
     workspaceId: string;
     userId: string;
-    role: 'OWNER' | 'ADMIN' | 'MEMBER';
+    role: WorkspaceRole;
     joinedAt: string;
     user: {
       id: string;

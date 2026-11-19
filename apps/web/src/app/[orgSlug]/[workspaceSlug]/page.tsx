@@ -18,9 +18,11 @@ import {
 import { useOrganizations } from '@/hooks/use-organization';
 import { useOrganizationWorkspaces, useWorkspace } from '@/hooks/use-workspace';
 import { useWorkspaceInvitations } from '@/hooks/use-invitation';
+import { useWorkspaceProjects } from '@/hooks/use-project';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { InviteMemberModal } from '@/components/invitations/invite-member-modal';
 import { PendingInvitationsList } from '@/components/invitations/pending-invitations-list';
+import { CreateProjectModal } from '@/components/projects/create-project-modal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -45,14 +47,20 @@ export default function WorkspaceOverviewPage({ params }: PageProps) {
     currentWs?.id || null,
   );
 
+  const { data: projects = [], isLoading: isProjectsLoading } =
+    useWorkspaceProjects(currentWs?.id || null);
+
   const { data: pendingInvitations = [] } = useWorkspaceInvitations(
     currentWs?.id || null,
   );
 
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [createProjModalOpen, setCreateProjModalOpen] = useState(false);
 
   const isOwnerOrAdmin =
     currentWs?.userRole === 'OWNER' || currentWs?.userRole === 'ADMIN';
+
+  const canCreateProject = currentWs?.userRole !== 'VIEWER';
 
   if (isOrgsLoading || isWorkspacesLoading || isDetailLoading) {
     return (
@@ -116,6 +124,15 @@ export default function WorkspaceOverviewPage({ params }: PageProps) {
           </div>
 
           <div className="flex items-center gap-3 self-start md:self-auto">
+            {canCreateProject && (
+              <Button
+                onClick={() => setCreateProjModalOpen(true)}
+                className="flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Create Project</span>
+              </Button>
+            )}
             {isOwnerOrAdmin && (
               <Button
                 variant="outline"
@@ -145,7 +162,7 @@ export default function WorkspaceOverviewPage({ params }: PageProps) {
                 <FolderKanban className="w-4 h-4 text-primary" /> Active Projects
               </CardDescription>
               <CardTitle className="text-2xl font-bold">
-                {currentWs._count.projects}
+                {projects.length}
               </CardTitle>
             </CardHeader>
           </Card>
@@ -171,9 +188,20 @@ export default function WorkspaceOverviewPage({ params }: PageProps) {
                 Manage development cycles, boards, and tasks in this workspace.
               </p>
             </div>
+            {canCreateProject && projects.length > 0 && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setCreateProjModalOpen(true)}
+                className="flex items-center gap-1.5"
+              >
+                <Plus className="w-4 h-4" />
+                <span>New Project</span>
+              </Button>
+            )}
           </div>
 
-          {currentWs._count.projects === 0 ? (
+          {projects.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border p-10 text-center bg-surface/40">
               <div className="w-10 h-10 rounded-full bg-primary/10 text-primary mx-auto flex items-center justify-center mb-3">
                 <FolderKanban className="w-5 h-5" />
@@ -181,13 +209,80 @@ export default function WorkspaceOverviewPage({ params }: PageProps) {
               <h3 className="text-base font-semibold text-foreground">
                 No projects created yet
               </h3>
-              <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1 mb-2">
-                Projects organize issues and workflows. You can start creating projects in Phase 4.
+              <p className="text-xs text-muted-foreground max-w-sm mx-auto mt-1 mb-4">
+                Projects organize issues and workflows. Create your first project to start managing tasks.
               </p>
+              {canCreateProject && (
+                <Button
+                  onClick={() => setCreateProjModalOpen(true)}
+                  className="flex items-center gap-2 mx-auto"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Create Project</span>
+                </Button>
+              )}
             </div>
           ) : (
-            <div className="p-4 rounded-xl border border-border bg-surface text-sm text-muted-foreground">
-              Projects list will appear here.
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {projects.map((proj) => (
+                <Link
+                  key={proj.id}
+                  href={`/${orgSlug}/${workspaceSlug}/${proj.key}`}
+                  className="block group"
+                >
+                  <Card className="h-full border-border bg-surface transition-all duration-200 hover:border-primary/50 hover:bg-surface-elevated flex flex-col justify-between">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-center justify-between gap-2 mb-1.5">
+                        <Badge
+                          variant="outline"
+                          className="font-mono text-xs font-semibold px-2 py-0.5 border-primary/30 text-primary bg-primary/5"
+                        >
+                          {proj.key}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] uppercase font-mono ${
+                            proj.status === 'ACTIVE'
+                              ? 'text-status-success border-status-success/30 bg-status-success/5'
+                              : proj.status === 'COMPLETED'
+                              ? 'text-blue-400 border-blue-400/30 bg-blue-400/5'
+                              : 'text-muted-foreground'
+                          }`}
+                        >
+                          {proj.status}
+                        </Badge>
+                      </div>
+                      <CardTitle className="text-base font-semibold group-hover:text-primary transition-colors flex items-center justify-between">
+                        <span>{proj.name}</span>
+                        <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                      </CardTitle>
+                      {proj.description && (
+                        <CardDescription className="text-xs line-clamp-2 mt-1">
+                          {proj.description}
+                        </CardDescription>
+                      )}
+                    </CardHeader>
+                    <CardContent className="pt-0 text-xs text-muted-foreground flex items-center justify-between border-t border-border/50 py-3 mt-auto">
+                      <div className="flex items-center gap-3">
+                        <span className="flex items-center gap-1">
+                          <Users className="w-3.5 h-3.5" />
+                          {proj._count?.members || 1}
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <FolderKanban className="w-3.5 h-3.5" />
+                          {proj._count?.tasks || 0} tasks
+                        </span>
+                      </div>
+                      {proj.dueDate && (
+                        <span className="flex items-center gap-1 text-[11px] font-mono">
+                          <Clock className="w-3 h-3" />
+                          {new Date(proj.dueDate).toLocaleDateString()}
+                        </span>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Link>
+              ))}
             </div>
           )}
         </div>
@@ -252,6 +347,14 @@ export default function WorkspaceOverviewPage({ params }: PageProps) {
         scope="workspace"
         targetId={currentWs.id}
         targetName={currentWs.name}
+      />
+
+      <CreateProjectModal
+        isOpen={createProjModalOpen}
+        onClose={() => setCreateProjModalOpen(false)}
+        workspaceId={currentWs.id}
+        workspaceName={currentWs.name}
+        onSuccess={(key) => router.push(`/${orgSlug}/${workspaceSlug}/${key}`)}
       />
     </DashboardLayout>
   );
