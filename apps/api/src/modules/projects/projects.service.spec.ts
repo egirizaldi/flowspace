@@ -31,9 +31,14 @@ describe('ProjectsService', () => {
     },
     project: {
       findUnique: jest.fn(),
+      findMany: jest.fn(),
+      count: jest.fn(),
       create: jest.fn(),
+      update: jest.fn(),
+      delete: jest.fn(),
     },
     projectMember: {
+      findUnique: jest.fn(),
       create: jest.fn(),
     },
     projectStatus: {
@@ -247,6 +252,191 @@ describe('ProjectsService', () => {
           }),
         }),
       );
+    });
+  });
+
+  describe('listByWorkspace', () => {
+    it('should throw NotFoundException if workspace does not exist', async () => {
+      mockPrismaService.workspace.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.listByWorkspace('ws-1', 'user-1', {}),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ForbiddenException if user has no access to workspace or org', async () => {
+      mockPrismaService.workspace.findUnique.mockResolvedValue({
+        id: 'ws-1',
+        organizationId: 'org-1',
+      });
+      mockPrismaService.workspaceMember.findUnique.mockResolvedValue(null);
+      mockPrismaService.organizationMember.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.listByWorkspace('ws-1', 'user-1', {}),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should return paginated projects for authorized member', async () => {
+      mockPrismaService.workspace.findUnique.mockResolvedValue({
+        id: 'ws-1',
+        organizationId: 'org-1',
+      });
+      mockPrismaService.workspaceMember.findUnique.mockResolvedValue({
+        role: WorkspaceRole.MEMBER,
+      });
+      mockPrismaService.project.count.mockResolvedValue(1);
+      mockPrismaService.project.findMany.mockResolvedValue([
+        { id: 'proj-1', name: 'Alpha' },
+      ]);
+
+      const result = await service.listByWorkspace('ws-1', 'user-1', {
+        page: 1,
+        limit: 10,
+        search: 'Alpha',
+      });
+
+      expect(result.projects).toHaveLength(1);
+      expect(result.meta).toEqual({
+        page: 1,
+        limit: 10,
+        total: 1,
+        totalPages: 1,
+      });
+    });
+  });
+
+  describe('findById', () => {
+    it('should throw NotFoundException if project not found', async () => {
+      mockPrismaService.project.findUnique.mockResolvedValue(null);
+
+      await expect(service.findById('proj-unknown', 'user-1')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should return project detail for authorized member', async () => {
+      mockPrismaService.project.findUnique
+        .mockResolvedValueOnce({
+          id: 'proj-1',
+          workspaceId: 'ws-1',
+          organizationId: 'org-1',
+        })
+        .mockResolvedValueOnce({
+          id: 'proj-1',
+          name: 'Project Detail',
+          key: 'DET',
+          members: [],
+          statuses: [],
+        });
+      mockPrismaService.projectMember.findUnique.mockResolvedValue({
+        role: ProjectRole.MEMBER,
+      });
+
+      const res = await service.findById('proj-1', 'user-1');
+      expect(res).toBeDefined();
+      expect(res.name).toBe('Project Detail');
+    });
+  });
+
+  describe('update', () => {
+    it('should throw ForbiddenException if user is not manager or admin', async () => {
+      mockPrismaService.project.findUnique.mockResolvedValue({
+        id: 'proj-1',
+        workspaceId: 'ws-1',
+        organizationId: 'org-1',
+      });
+      mockPrismaService.projectMember.findUnique.mockResolvedValue({
+        role: ProjectRole.VIEWER,
+      });
+      mockPrismaService.workspaceMember.findUnique.mockResolvedValue(null);
+      mockPrismaService.organizationMember.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.update('proj-1', 'user-1', { name: 'New Name' }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should update project fields if user is manager', async () => {
+      mockPrismaService.project.findUnique.mockResolvedValue({
+        id: 'proj-1',
+        workspaceId: 'ws-1',
+        organizationId: 'org-1',
+      });
+      mockPrismaService.projectMember.findUnique.mockResolvedValue({
+        role: ProjectRole.MANAGER,
+      });
+      mockPrismaService.project.update.mockResolvedValue({
+        id: 'proj-1',
+        name: 'New Name',
+      });
+
+      const res = await service.update('proj-1', 'user-1', { name: 'New Name' });
+      expect(res.name).toBe('New Name');
+      expect(mockPrismaService.project.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'proj-1' },
+          data: expect.objectContaining({ name: 'New Name' }),
+        }),
+      );
+    });
+  });
+
+  describe('archive and restore', () => {
+    it('should archive project', async () => {
+      mockPrismaService.project.findUnique.mockResolvedValue({
+        id: 'proj-1',
+        workspaceId: 'ws-1',
+        organizationId: 'org-1',
+      });
+      mockPrismaService.projectMember.findUnique.mockResolvedValue({
+        role: ProjectRole.MANAGER,
+      });
+      mockPrismaService.project.update.mockResolvedValue({
+        id: 'proj-1',
+        archivedAt: new Date(),
+      });
+
+      const res = await service.archive('proj-1', 'user-1');
+      expect(res.archivedAt).toBeDefined();
+    });
+
+    it('should restore project', async () => {
+      mockPrismaService.project.findUnique.mockResolvedValue({
+        id: 'proj-1',
+        workspaceId: 'ws-1',
+        organizationId: 'org-1',
+      });
+      mockPrismaService.projectMember.findUnique.mockResolvedValue({
+        role: ProjectRole.MANAGER,
+      });
+      mockPrismaService.project.update.mockResolvedValue({
+        id: 'proj-1',
+        archivedAt: null,
+      });
+
+      const res = await service.restore('proj-1', 'user-1');
+      expect(res.archivedAt).toBeNull();
+    });
+  });
+
+  describe('delete', () => {
+    it('should delete project if user is manager or admin', async () => {
+      mockPrismaService.project.findUnique.mockResolvedValue({
+        id: 'proj-1',
+        workspaceId: 'ws-1',
+        organizationId: 'org-1',
+      });
+      mockPrismaService.projectMember.findUnique.mockResolvedValue({
+        role: ProjectRole.MANAGER,
+      });
+      mockPrismaService.project.delete.mockResolvedValue({});
+
+      const res = await service.delete('proj-1', 'user-1');
+      expect(res.success).toBe(true);
+      expect(mockPrismaService.project.delete).toHaveBeenCalledWith({
+        where: { id: 'proj-1' },
+      });
     });
   });
 });

@@ -10,6 +10,7 @@ describe('WorkspaceProjectsController', () => {
 
   const mockProjectsService = {
     create: jest.fn(),
+    listByWorkspace: jest.fn(),
   };
 
   const mockSessionService = {
@@ -67,6 +68,39 @@ describe('WorkspaceProjectsController', () => {
           name: 'New Architecture',
           key: 'ARCH',
         }),
+      );
+    });
+  });
+
+  describe('list', () => {
+    it('should return paginated list of projects with meta', async () => {
+      const mockList = {
+        projects: [
+          { id: 'proj-1', name: 'Project 1' },
+          { id: 'proj-2', name: 'Project 2' },
+        ],
+        meta: {
+          page: 1,
+          limit: 20,
+          total: 2,
+          totalPages: 1,
+        },
+      };
+
+      mockProjectsService.listByWorkspace.mockResolvedValue(mockList);
+
+      const result = await controller.list('ws-1', 'user-1', { page: 1, limit: 20 });
+
+      expect(result).toEqual({
+        success: true,
+        message: 'Projects retrieved successfully',
+        data: mockList.projects,
+        meta: mockList.meta,
+      });
+      expect(mockProjectsService.listByWorkspace).toHaveBeenCalledWith(
+        'ws-1',
+        'user-1',
+        { page: 1, limit: 20 },
       );
     });
   });

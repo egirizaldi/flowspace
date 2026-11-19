@@ -1,8 +1,10 @@
 import {
   Controller,
   Post,
+  Get,
   Param,
   Body,
+  Query,
   UseGuards,
   HttpCode,
   HttpStatus,
@@ -16,6 +18,7 @@ import {
 } from '@nestjs/swagger';
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
+import { QueryProjectsDto } from './dto/query-projects.dto';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ApiResponseDto } from '../../common/dto/api-response.dto';
@@ -66,6 +69,45 @@ export class WorkspaceProjectsController {
       success: true,
       message: 'Project created successfully',
       data: project,
+    };
+  }
+
+  @Get()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'List projects in a workspace' })
+  @ApiResponse({
+    status: 200,
+    description: 'Projects retrieved successfully',
+    type: ApiResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid or missing session',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - user does not have access to this workspace',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Workspace not found',
+  })
+  async list(
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @CurrentUser('id') userId: string,
+    @Query() query: QueryProjectsDto,
+  ) {
+    const { projects, meta } = await this.projectsService.listByWorkspace(
+      workspaceId,
+      userId,
+      query,
+    );
+
+    return {
+      success: true,
+      message: 'Projects retrieved successfully',
+      data: projects,
+      meta,
     };
   }
 }

@@ -7,11 +7,14 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { CreateProjectDto } from './dto/create-project.dto';
+import { UpdateProjectDto } from './dto/update-project.dto';
+import { QueryProjectsDto } from './dto/query-projects.dto';
 import {
   ProjectLifecycleStatus,
   ProjectRole,
   WorkspaceRole,
   OrganizationRole,
+  Prisma,
 } from '@prisma/client';
 import { DEFAULT_PROJECT_STATUSES } from '@flowspace/shared';
 
@@ -38,6 +41,82 @@ export class ProjectsService {
     }
 
     return key.substring(0, 10);
+  }
+
+  async checkProjectAccess(
+    projectId: string,
+    userId: string,
+    requireManage: boolean = false,
+  ) {
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        workspace: true,
+      },
+    });
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    const projectMember = await this.prisma.projectMember.findUnique({
+      where: {
+        projectId_userId: {
+          projectId,
+          userId,
+        },
+      },
+    });
+
+    const wsMember = await this.prisma.workspaceMember.findUnique({
+      where: {
+        workspaceId_userId: {
+          workspaceId: project.workspaceId,
+          userId,
+        },
+      },
+    });
+
+    const orgMember = await this.prisma.organizationMember.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId: project.organizationId,
+          userId,
+        },
+      },
+    });
+
+    let isAuthorized = false;
+
+    if (requireManage) {
+      if (
+        projectMember?.role === ProjectRole.MANAGER ||
+        wsMember?.role === WorkspaceRole.OWNER ||
+        wsMember?.role === WorkspaceRole.ADMIN ||
+        orgMember?.role === OrganizationRole.OWNER ||
+        orgMember?.role === OrganizationRole.ADMIN
+      ) {
+        isAuthorized = true;
+      }
+    } else {
+      if (
+        Boolean(projectMember) ||
+        Boolean(wsMember) ||
+        orgMember?.role === OrganizationRole.OWNER ||
+        orgMember?.role === OrganizationRole.ADMIN
+      ) {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
+      throw new ForbiddenException(
+        requireManage
+          ? 'You do not have permission to manage this project'
+          : 'You do not have permission to view this project',
+      );
+    }
+
+    return { project, projectMember, wsMember, orgMember };
   }
 
   async create(workspaceId: string, userId: string, dto: CreateProjectDto) {
@@ -187,5 +266,234 @@ export class ProjectsService {
 
       return found!;
     });
+  }
+
+  async listByWorkspace(
+    workspaceId: string,
+    userId: string,
+    query: QueryProjectsDto,
+  ) {
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id: workspaceId },
+    });
+    if (!workspace) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    const wsMember = await this.prisma.workspaceMember.findUnique({
+      where: {
+        workspaceId_userId: {
+          workspaceId,
+          userId,
+        },
+      },
+    });
+
+    if (!wsMember) {
+      const orgMember = await this.prisma.organizationMember.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: workspace.organizationId,
+            userId,
+          },
+        },
+      });
+      if (
+        !orgMember ||
+        (orgMember.role !== OrganizationRole.OWNER &&
+          orgMember.role !== OrganizationRole.ADMIN)
+      ) {
+        throw new ForbiddenException('You do not have access to this workspace');
+      }
+    }
+
+    const page = Math.max(1, query.page || 1);
+    const limit = Math.min(100, Math.max(1, query.limit || 20));
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.ProjectWhereInput = {
+      workspaceId,
+    };
+
+    if (!query.includeArchived) {
+      where.archivedAt = null;
+    }
+
+    if (query.status) {
+      where.status = query.status;
+    }
+
+    if (query.search?.trim()) {
+      const searchTerm = query.search.trim();
+      where.OR = [
+        { name: { contains: searchTerm, mode: 'insensitive' } },
+        { key: { contains: searchTerm, mode: 'insensitive' } },
+      ];
+    }
+
+    const [total, projects] = await Promise.all([
+      this.prisma.project.count({ where }),
+      this.prisma.project.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          _count: {
+            select: {
+              members: true,
+              tasks: true,
+            },
+          },
+          statuses: {
+            orderBy: { position: 'asc' },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      projects,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
+  }
+
+  async findById(projectId: string, userId: string) {
+    await this.checkProjectAccess(projectId, userId, false);
+
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+      include: {
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                avatarUrl: true,
+              },
+            },
+          },
+          orderBy: { joinedAt: 'asc' },
+        },
+        statuses: {
+          orderBy: { position: 'asc' },
+        },
+        workspace: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            organizationId: true,
+          },
+        },
+        _count: {
+          select: {
+            tasks: true,
+          },
+        },
+      },
+    });
+
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    return project;
+  }
+
+  async update(projectId: string, userId: string, dto: UpdateProjectDto) {
+    await this.checkProjectAccess(projectId, userId, true);
+
+    const data: Prisma.ProjectUpdateInput = {};
+
+    if (dto.name !== undefined) {
+      data.name = dto.name.trim();
+    }
+    if (dto.description !== undefined) {
+      data.description = dto.description?.trim() || null;
+    }
+    if (dto.status !== undefined) {
+      data.status = dto.status;
+    }
+    if (dto.startDate !== undefined) {
+      data.startDate = dto.startDate ? new Date(dto.startDate) : null;
+    }
+    if (dto.dueDate !== undefined) {
+      data.dueDate = dto.dueDate ? new Date(dto.dueDate) : null;
+    }
+
+    return this.prisma.project.update({
+      where: { id: projectId },
+      data,
+      include: {
+        members: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+        statuses: {
+          orderBy: { position: 'asc' },
+        },
+      },
+    });
+  }
+
+  async archive(projectId: string, userId: string) {
+    await this.checkProjectAccess(projectId, userId, true);
+
+    return this.prisma.project.update({
+      where: { id: projectId },
+      data: {
+        archivedAt: new Date(),
+      },
+      include: {
+        statuses: {
+          orderBy: { position: 'asc' },
+        },
+      },
+    });
+  }
+
+  async restore(projectId: string, userId: string) {
+    await this.checkProjectAccess(projectId, userId, true);
+
+    return this.prisma.project.update({
+      where: { id: projectId },
+      data: {
+        archivedAt: null,
+      },
+      include: {
+        statuses: {
+          orderBy: { position: 'asc' },
+        },
+      },
+    });
+  }
+
+  async delete(projectId: string, userId: string) {
+    await this.checkProjectAccess(projectId, userId, true);
+
+    await this.prisma.project.delete({
+      where: { id: projectId },
+    });
+
+    return {
+      success: true,
+      message: 'Project deleted successfully',
+    };
   }
 }
