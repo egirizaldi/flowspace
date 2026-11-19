@@ -17,6 +17,10 @@ describe('TasksController', () => {
     getTaskActivities: jest.fn(),
     moveTask: jest.fn(),
     deleteTask: jest.fn(),
+    attachTaskLabel: jest.fn(),
+    detachTaskLabel: jest.fn(),
+    createSubtask: jest.fn(),
+    setParentTask: jest.fn(),
   };
 
   const mockSessionService = {
@@ -170,6 +174,85 @@ describe('TasksController', () => {
         data: result,
       });
       expect(mockTasksService.deleteTask).toHaveBeenCalledWith('t-1', 'u-1');
+    });
+  });
+
+  describe('attachLabel', () => {
+    it('should attach label and return wrapped response', async () => {
+      const dto = { labelId: 'lbl-1' };
+      const updated = { id: 't-1', labels: [{ labelId: 'lbl-1' }] };
+      mockTasksService.attachTaskLabel.mockResolvedValue(updated);
+
+      const res = await controller.attachLabel('t-1', dto, 'u-1');
+      expect(res).toEqual({
+        success: true,
+        message: 'Label attached to task successfully',
+        data: updated,
+      });
+      expect(mockTasksService.attachTaskLabel).toHaveBeenCalledWith(
+        't-1',
+        'u-1',
+        dto,
+      );
+    });
+  });
+
+  describe('detachLabel', () => {
+    it('should remove label and return wrapped response', async () => {
+      const result = { success: true, message: 'Label removed' };
+      mockTasksService.detachTaskLabel.mockResolvedValue(result);
+
+      const res = await controller.detachLabel('t-1', 'lbl-1', 'u-1');
+      expect(res).toEqual({
+        success: true,
+        message: 'Label removed from task successfully',
+        data: result,
+      });
+      expect(mockTasksService.detachTaskLabel).toHaveBeenCalledWith(
+        't-1',
+        'lbl-1',
+        'u-1',
+      );
+    });
+  });
+
+  describe('createSubtask', () => {
+    it('should create subtask and return wrapped response', async () => {
+      const dto = { title: 'Subtask 1', statusId: 's-1' };
+      const created = { id: 't-sub', title: 'Subtask 1', parentTaskId: 't-1' };
+      mockTasksService.createSubtask.mockResolvedValue(created);
+
+      const res = await controller.createSubtask('t-1', dto, 'u-1');
+      expect(res).toEqual({
+        success: true,
+        message: 'Subtask created successfully',
+        data: created,
+      });
+      expect(mockTasksService.createSubtask).toHaveBeenCalledWith(
+        't-1',
+        'u-1',
+        dto,
+      );
+    });
+  });
+
+  describe('setParentTask', () => {
+    it('should update parent task and return wrapped response', async () => {
+      const dto = { parentTaskId: 't-parent', version: 1 };
+      const updated = { id: 't-1', parentTaskId: 't-parent', version: 2 };
+      mockTasksService.setParentTask.mockResolvedValue(updated);
+
+      const res = await controller.setParentTask('t-1', dto, 'u-1');
+      expect(res).toEqual({
+        success: true,
+        message: 'Parent task updated successfully',
+        data: updated,
+      });
+      expect(mockTasksService.setParentTask).toHaveBeenCalledWith(
+        't-1',
+        'u-1',
+        dto,
+      );
     });
   });
 });

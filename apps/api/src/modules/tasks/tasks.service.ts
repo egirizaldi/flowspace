@@ -12,6 +12,10 @@ import { UpdateTaskDto } from './dto/update-task.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { AssignTaskDto } from './dto/assign-task.dto';
 import { MoveTaskDto } from './dto/move-task.dto';
+import { CreateLabelDto } from './dto/create-label.dto';
+import { UpdateLabelDto } from './dto/update-label.dto';
+import { AttachLabelDto } from './dto/attach-label.dto';
+import { SetParentTaskDto } from './dto/set-parent-task.dto';
 import {
   TaskPriority,
   ProjectRole,
@@ -792,6 +796,261 @@ export class TasksService {
       success: true,
       message: 'Task deleted successfully',
       deletedId: taskId,
+    };
+  }
+
+  // ==========================================
+  // Labels Management & Task Association (FS-035)
+  // ==========================================
+
+  async listProjectLabels(projectId: string, userId: string) {
+    await this.checkProjectAccess(projectId, userId);
+
+    return this.prisma.label.findMany({
+      where: { projectId },
+      orderBy: { name: 'asc' },
+      include: {
+        _count: {
+          select: { tasks: true },
+        },
+      },
+    });
+  }
+
+  async createProjectLabel(
+    projectId: string,
+    userId: string,
+    dto: CreateLabelDto,
+  ) {
+    await this.checkProjectAccess(projectId, userId);
+
+    const existing = await this.prisma.label.findUnique({
+      where: {
+        projectId_name: {
+          projectId,
+          name: dto.name.trim(),
+        },
+      },
+    });
+
+    if (existing) {
+      throw new ConflictException(
+        `Label '${dto.name}' already exists in this project`,
+      );
+    }
+
+    return this.prisma.label.create({
+      data: {
+        projectId,
+        name: dto.name.trim(),
+        color: dto.color,
+      },
+      include: {
+        _count: {
+          select: { tasks: true },
+        },
+      },
+    });
+  }
+
+  async updateProjectLabel(
+    projectId: string,
+    labelId: string,
+    userId: string,
+    dto: UpdateLabelDto,
+  ) {
+    await this.checkProjectAccess(projectId, userId);
+
+    const label = await this.prisma.label.findFirst({
+      where: { id: labelId, projectId },
+    });
+
+    if (!label) {
+      throw new NotFoundException('Label not found');
+    }
+
+    if (dto.name && dto.name.trim() !== label.name) {
+      const existing = await this.prisma.label.findUnique({
+        where: {
+          projectId_name: {
+            projectId,
+            name: dto.name.trim(),
+          },
+        },
+      });
+      if (existing) {
+        throw new ConflictException(
+          `Label '${dto.name}' already exists in this project`,
+        );
+      }
+    }
+
+    return this.prisma.label.update({
+      where: { id: labelId },
+      data: {
+        ...(dto.name ? { name: dto.name.trim() } : {}),
+        ...(dto.color ? { color: dto.color } : {}),
+      },
+      include: {
+        _count: {
+          select: { tasks: true },
+        },
+      },
+    });
+  }
+
+  async deleteProjectLabel(
+    projectId: string,
+    labelId: string,
+    userId: string,
+  ) {
+    await this.checkProjectAccess(projectId, userId);
+
+    const label = await this.prisma.label.findFirst({
+      where: { id: labelId, projectId },
+    });
+
+    if (!label) {
+      throw new NotFoundException('Label not found');
+    }
+
+    await this.prisma.label.delete({
+      where: { id: labelId },
+    });
+
+    return {
+      success: true,
+      message: 'Label deleted successfully',
+      deletedId: labelId,
+    };
+  }
+
+  async attachTaskLabel(taskId: string, userId: string, dto: AttachLabelDto) {
+    const task = await this.checkTaskAccess(taskId, userId, false, true);
+
+    const label = await this.prisma.label.findUnique({
+      where: { id: dto.labelId },
+    });
+
+    if (!label || label.projectId !== task.projectId) {
+      throw new BadRequestException(
+        'Label does not belong to this project',
+      );
+    }
+
+    const existing = await this.prisma.taskLabel.findUnique({
+      where: {
+        taskId_labelId: {
+          taskId,
+          labelId: dto.labelId,
+        },
+      },
+    });
+
+    if (!existing) {
+      await this.prisma.taskLabel.create({
+        data: {
+          taskId,
+          labelId: dto.labelId,
+        },
+      });
+    }
+
+    return this.findTaskById(taskId, userId);
+  }
+
+  async detachTaskLabel(taskId: string, labelId: string, userId: string) {
+    await this.checkTaskAccess(taskId, userId, false, true);
+
+    await this.prisma.taskLabel.deleteMany({
+      where: {
+        taskId,
+        labelId,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'Label removed from task successfully',
+      labelId,
+    };
+  }
+
+  // ==========================================
+  // Subtasks & Circular Hierarchy Validation (FS-035)
+  // ==========================================
+
+  async createSubtask(
+    parentTaskId: string,
+    userId: string,
+    dto: CreateTaskDto,
+  ) {
+    const parent = await this.checkTaskAccess(parentTaskId, userId, false, true);
+
+    return this.createTask(parent.projectId, userId, {
+      ...dto,
+      parentTaskId,
+    });
+  }
+
+  async setParentTask(
+    taskId: string,
+    userId: string,
+    dto: SetParentTaskDto,
+  ) {
+    const task = await this.checkTaskAccess(taskId, userId, false, true);
+
+    if (task.version !== dto.version) {
+      throw new ConflictException(
+        `Task has been modified by another process. Expected version ${dto.version}, but found ${task.version}. Please refresh and try again.`,
+      );
+    }
+
+    if (dto.parentTaskId) {
+      if (dto.parentTaskId === taskId) {
+        throw new BadRequestException('A task cannot be its own parent');
+      }
+
+      const targetParent = await this.prisma.task.findUnique({
+        where: { id: dto.parentTaskId },
+      });
+
+      if (!targetParent || targetParent.projectId !== task.projectId) {
+        throw new BadRequestException(
+          'Parent task does not belong to this project',
+        );
+      }
+
+      // Circular ancestor validation: traverse up from targetParent
+      let currentId: string | null = targetParent.id;
+      const visited = new Set<string>([taskId]);
+      while (currentId) {
+        if (visited.has(currentId)) {
+          throw new BadRequestException(
+            'Circular parent relationship detected. A task cannot have one of its descendants as its parent.',
+          );
+        }
+        visited.add(currentId);
+        const ancestor = await this.prisma.task.findUnique({
+          where: { id: currentId },
+          select: { parentTaskId: true },
+        });
+        currentId = ancestor?.parentTaskId || null;
+      }
+    }
+
+    const updated = await this.prisma.task.update({
+      where: { id: taskId },
+      data: {
+        parentTaskId: dto.parentTaskId || null,
+        version: { increment: 1 },
+      },
+      include: taskIncludes,
+    });
+
+    return {
+      ...updated,
+      taskKey: `${updated.project.key}-${updated.taskNumber}`,
     };
   }
 }

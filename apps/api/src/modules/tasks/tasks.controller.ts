@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Delete,
   Param,
@@ -18,10 +19,13 @@ import {
   ApiParam,
 } from '@nestjs/swagger';
 import { TasksService } from './tasks.service';
+import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { UpdateTaskStatusDto } from './dto/update-task-status.dto';
 import { AssignTaskDto } from './dto/assign-task.dto';
 import { MoveTaskDto } from './dto/move-task.dto';
+import { AttachLabelDto } from './dto/attach-label.dto';
+import { SetParentTaskDto } from './dto/set-parent-task.dto';
 import { AuthGuard } from '../../common/guards/auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { ApiResponseDto } from '../../common/dto/api-response.dto';
@@ -299,6 +303,163 @@ export class TasksController {
     return {
       success: true,
       message: 'Task moved successfully',
+      data: task,
+    };
+  }
+
+  @Post(':taskId/labels')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Attach a label to a task' })
+  @ApiParam({ name: 'taskId', description: 'Task UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Label attached to task successfully',
+    type: ApiResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad Request - label does not belong to project or validation failure',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid or missing session',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - user does not have permission to edit this task',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Task not found',
+  })
+  async attachLabel(
+    @Param('taskId', ParseUUIDPipe) taskId: string,
+    @Body() dto: AttachLabelDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    const task = await this.tasksService.attachTaskLabel(taskId, userId, dto);
+    return {
+      success: true,
+      message: 'Label attached to task successfully',
+      data: task,
+    };
+  }
+
+  @Delete(':taskId/labels/:labelId')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remove a label from a task' })
+  @ApiParam({ name: 'taskId', description: 'Task UUID' })
+  @ApiParam({ name: 'labelId', description: 'Label UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Label removed from task successfully',
+    type: ApiResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid or missing session',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - user does not have permission to edit this task',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Task not found',
+  })
+  async detachLabel(
+    @Param('taskId', ParseUUIDPipe) taskId: string,
+    @Param('labelId', ParseUUIDPipe) labelId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    const result = await this.tasksService.detachTaskLabel(
+      taskId,
+      labelId,
+      userId,
+    );
+    return {
+      success: true,
+      message: 'Label removed from task successfully',
+      data: result,
+    };
+  }
+
+  @Post(':taskId/subtasks')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Create a subtask directly under this task' })
+  @ApiParam({ name: 'taskId', description: 'Parent Task UUID' })
+  @ApiResponse({
+    status: 201,
+    description: 'Subtask created successfully',
+    type: ApiResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad Request - validation failure',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid or missing session',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - user does not have permission to edit this task',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Parent task not found',
+  })
+  async createSubtask(
+    @Param('taskId', ParseUUIDPipe) taskId: string,
+    @Body() dto: CreateTaskDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    const subtask = await this.tasksService.createSubtask(taskId, userId, dto);
+    return {
+      success: true,
+      message: 'Subtask created successfully',
+      data: subtask,
+    };
+  }
+
+  @Patch(':taskId/parent')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Set or update the parent task with circular check' })
+  @ApiParam({ name: 'taskId', description: 'Task UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Parent task updated successfully',
+    type: ApiResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad Request - circular parent relationship or invalid parent',
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid or missing session',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - user does not have permission to edit this task',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Task or parent task not found',
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - optimistic concurrency version mismatch',
+  })
+  async setParentTask(
+    @Param('taskId', ParseUUIDPipe) taskId: string,
+    @Body() dto: SetParentTaskDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    const task = await this.tasksService.setParentTask(taskId, userId, dto);
+    return {
+      success: true,
+      message: 'Parent task updated successfully',
       data: task,
     };
   }
