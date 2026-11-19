@@ -82,4 +82,31 @@ export class AuthController {
       data: user,
     };
   }
+
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Log out current session' })
+  @ApiResponse({
+    status: 200,
+    description: 'Logout successful, session revoked and cookie cleared',
+    type: ApiResponseDto,
+  })
+  async logout(
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const cookieName = this.sessionService.getCookieName();
+    const rawToken = req.cookies?.[cookieName];
+
+    if (rawToken) {
+      await this.sessionService.revokeSession(rawToken);
+    }
+
+    this.sessionService.clearSessionCookie(res);
+
+    return {
+      success: true,
+      message: 'Logged out successfully',
+    };
+  }
 }

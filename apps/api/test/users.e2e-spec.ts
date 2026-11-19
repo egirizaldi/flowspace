@@ -24,7 +24,7 @@ describe('User Model Database Constraints (Integration)', () => {
   afterAll(async () => {
     if (prisma) {
       await prisma.user.deleteMany({
-        where: { email: { contains: 'flowspace-test.internal' } },
+        where: { email: { contains: 'test-user-' } },
       });
       await prisma.$disconnect();
     }

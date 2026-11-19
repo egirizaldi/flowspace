@@ -42,7 +42,7 @@ describe('Auth Registration API (e2e)', () => {
   afterAll(async () => {
     if (prisma) {
       await prisma.user.deleteMany({
-        where: { email: { contains: 'flowspace-test.internal' } },
+        where: { email: { contains: 'register-' } },
       });
       await prisma.$disconnect();
     }
