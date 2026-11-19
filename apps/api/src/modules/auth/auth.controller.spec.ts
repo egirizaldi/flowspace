@@ -107,4 +107,18 @@ describe('AuthController', () => {
       });
     });
   });
+
+  describe('me', () => {
+    it('should return the current user profile from @CurrentUser', async () => {
+      const mockUser = { id: 'u1', name: 'User', email: 'u@flowspace.com' } as any;
+
+      const result = await controller.me(mockUser);
+
+      expect(result).toEqual({
+        success: true,
+        message: 'User profile retrieved successfully',
+        data: mockUser,
+      });
+    });
+  });
 });
