@@ -5,6 +5,7 @@ import {
   UpdateTaskInput,
   UpdateTaskStatusInput,
   AssignTaskInput,
+  MoveTaskInput,
   CreateLabelInput,
   TaskPriority,
 } from '@flowspace/shared';
@@ -358,6 +359,95 @@ export function useDeleteTask(taskId: string, projectId?: string) {
           queryKey: ['board', 'project', projectId],
         });
       }
+    },
+  });
+}
+
+export function useMoveTask(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      taskId,
+      payload,
+    }: {
+      taskId: string;
+      payload: MoveTaskInput;
+    }) => {
+      const res = await apiClient.patch<TaskItem>(`/tasks/${taskId}/move`, payload);
+      return res.data;
+    },
+    onMutate: async ({ taskId, payload }) => {
+      await queryClient.cancelQueries({ queryKey: ['board', 'project', projectId] });
+
+      const previousBoard = queryClient.getQueryData<KanbanBoardData>([
+        'board',
+        'project',
+        projectId,
+      ]);
+
+      if (previousBoard) {
+        let movedTask: KanbanBoardTaskItem | null = null;
+
+        const updatedColumns = previousBoard.columns.map((column) => {
+          const found = column.tasks.find((t) => t.id === taskId);
+          if (found) {
+            movedTask = {
+              ...found,
+              statusId: payload.statusId,
+              position: payload.position,
+              version: found.version + 1,
+            };
+            return {
+              ...column,
+              tasks: column.tasks.filter((t) => t.id !== taskId),
+            };
+          }
+          return column;
+        });
+
+        if (movedTask) {
+          const targetColIndex = updatedColumns.findIndex(
+            (c) => c.id === payload.statusId,
+          );
+          if (targetColIndex !== -1) {
+            const targetCol = updatedColumns[targetColIndex];
+            const newTasks = [...targetCol.tasks, movedTask].sort(
+              (a, b) => Number(a.position) - Number(b.position),
+            );
+            updatedColumns[targetColIndex] = {
+              ...targetCol,
+              tasks: newTasks,
+            };
+          }
+        }
+
+        queryClient.setQueryData<KanbanBoardData>(
+          ['board', 'project', projectId],
+          {
+            ...previousBoard,
+            columns: updatedColumns,
+          },
+        );
+      }
+
+      return { previousBoard };
+    },
+    onError: (_err, _variables, context) => {
+      if (context?.previousBoard) {
+        queryClient.setQueryData(
+          ['board', 'project', projectId],
+          context.previousBoard,
+        );
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({
+        queryKey: ['board', 'project', projectId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['tasks', 'project', projectId],
+      });
     },
   });
 }

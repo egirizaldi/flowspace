@@ -5,13 +5,16 @@ import { KanbanBoardTaskItem } from '@/hooks/use-tasks';
 import { Badge } from '@/components/ui/badge';
 import { Calendar, CheckCircle2, MessageSquare, User as UserIcon } from 'lucide-react';
 import { TaskPriority } from '@flowspace/shared';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
-interface TaskCardProps {
+export interface TaskCardProps {
   task: KanbanBoardTaskItem;
   onClick?: () => void;
+  isOverlay?: boolean;
 }
 
-export function TaskCard({ task, onClick }: TaskCardProps) {
+export function TaskCard({ task, onClick, isOverlay = false }: TaskCardProps) {
   const getPriorityBadge = (priority: TaskPriority) => {
     switch (priority) {
       case 'URGENT':
@@ -29,7 +32,11 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
   return (
     <div
       onClick={onClick}
-      className="group relative flex flex-col gap-2 p-3 rounded-lg border border-border bg-surface hover:bg-surface-elevated/70 hover:border-primary/40 shadow-sm hover:shadow transition-all cursor-pointer select-none"
+      className={`group relative flex flex-col gap-2 p-3 rounded-lg border border-border bg-surface transition-all select-none ${
+        isOverlay
+          ? 'shadow-2xl border-primary/50 rotate-1 cursor-grabbing scale-102 bg-surface-elevated'
+          : 'hover:bg-surface-elevated/70 hover:border-primary/40 shadow-sm hover:shadow cursor-grab active:cursor-grabbing'
+      }`}
     >
       {/* Top row: Task Key + Priority */}
       <div className="flex items-center justify-between gap-2">
@@ -104,6 +111,44 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+export function SortableTaskCard({ task, onClick }: TaskCardProps) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: task.id,
+    data: {
+      type: 'Task',
+      task,
+    },
+  });
+
+  const style = {
+    transform: CSS.Translate.toString(transform),
+    transition,
+  };
+
+  if (isDragging) {
+    return (
+      <div
+        ref={setNodeRef}
+        style={style}
+        className="opacity-30 border-2 border-dashed border-primary rounded-lg h-24 bg-surface-elevated"
+      />
+    );
+  }
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <TaskCard task={task} onClick={onClick} />
     </div>
   );
 }
