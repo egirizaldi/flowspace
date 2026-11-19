@@ -7,20 +7,37 @@ import {
   NotFoundException,
   ForbiddenException,
 } from '@nestjs/common';
-import { InvitationStatus } from '@prisma/client';
+import {
+  InvitationStatus,
+  OrganizationRole,
+  WorkspaceRole,
+  ProjectRole,
+} from '@prisma/client';
 
 describe('InvitationsService', () => {
   let service: InvitationsService;
   let prisma: PrismaService;
 
   const mockPrismaService = {
+    user: {
+      findUnique: jest.fn(),
+    },
     organization: {
+      findUnique: jest.fn(),
+    },
+    organizationMember: {
       findUnique: jest.fn(),
     },
     workspace: {
       findUnique: jest.fn(),
     },
+    workspaceMember: {
+      findUnique: jest.fn(),
+    },
     project: {
+      findUnique: jest.fn(),
+    },
+    projectMember: {
       findUnique: jest.fn(),
     },
     invitation: {
@@ -141,6 +158,80 @@ describe('InvitationsService', () => {
           }),
         }),
       );
+    });
+  });
+
+  describe('inviteToOrganization', () => {
+    it('should throw NotFoundException if organization not found', async () => {
+      mockPrismaService.organization.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.inviteToOrganization('org-1', 'user-1', {
+          email: 'dev@example.com',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ForbiddenException if inviter is only a MEMBER', async () => {
+      mockPrismaService.organization.findUnique.mockResolvedValue({
+        id: 'org-1',
+      });
+      mockPrismaService.organizationMember.findUnique.mockResolvedValue({
+        role: OrganizationRole.MEMBER,
+      });
+
+      await expect(
+        service.inviteToOrganization('org-1', 'user-1', {
+          email: 'dev@example.com',
+        }),
+      ).rejects.toThrow(ForbiddenException);
+    });
+
+    it('should throw ConflictException if user is already in organization', async () => {
+      mockPrismaService.organization.findUnique.mockResolvedValue({
+        id: 'org-1',
+      });
+      mockPrismaService.organizationMember.findUnique
+        .mockResolvedValueOnce({ role: OrganizationRole.OWNER }) // Inviter
+        .mockResolvedValueOnce({ role: OrganizationRole.MEMBER }); // Target user membership
+      mockPrismaService.user.findUnique.mockResolvedValue({ id: 'user-target' });
+
+      await expect(
+        service.inviteToOrganization('org-1', 'user-1', {
+          email: 'dev@example.com',
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('inviteToWorkspace', () => {
+    it('should throw NotFoundException if workspace not found', async () => {
+      mockPrismaService.workspace.findUnique.mockResolvedValue(null);
+
+      await expect(
+        service.inviteToWorkspace('ws-1', 'user-1', {
+          email: 'dev@example.com',
+        }),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ForbiddenException if caller has insufficient workspace role', async () => {
+      mockPrismaService.workspace.findUnique.mockResolvedValue({
+        id: 'ws-1',
+        organizationId: 'org-1',
+      });
+      mockPrismaService.workspaceMember.findUnique.mockResolvedValue({
+        role: WorkspaceRole.MEMBER,
+      });
+      mockPrismaService.organizationMember.findUnique.mockResolvedValue({
+        role: OrganizationRole.MEMBER,
+      });
+
+      await expect(
+        service.inviteToWorkspace('ws-1', 'user-1', {
+          email: 'dev@example.com',
+        }),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 

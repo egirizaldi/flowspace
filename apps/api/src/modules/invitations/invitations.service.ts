@@ -6,8 +6,17 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
-import { Invitation, InvitationStatus } from '@prisma/client';
+import {
+  Invitation,
+  InvitationStatus,
+  OrganizationRole,
+  WorkspaceRole,
+  ProjectRole,
+} from '@prisma/client';
 import { CreateInvitationDto } from './dto/create-invitation.dto';
+import { InviteOrganizationMemberDto } from './dto/invite-organization-member.dto';
+import { InviteWorkspaceMemberDto } from './dto/invite-workspace-member.dto';
+import { InviteProjectMemberDto } from './dto/invite-project-member.dto';
 import * as crypto from 'crypto';
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
@@ -126,6 +135,246 @@ export class InvitationsService {
       invitation,
       rawToken,
     };
+  }
+
+  async inviteToOrganization(
+    organizationId: string,
+    inviterUserId: string,
+    dto: InviteOrganizationMemberDto,
+  ): Promise<CreateInvitationResult> {
+    const email = dto.email.toLowerCase().trim();
+
+    // 1. Verify organization exists
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+    });
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    // 2. Check caller permission: Only Org OWNER or ADMIN can invite
+    const orgMember = await this.prisma.organizationMember.findUnique({
+      where: {
+        organizationId_userId: {
+          organizationId,
+          userId: inviterUserId,
+        },
+      },
+    });
+    if (
+      !orgMember ||
+      (orgMember.role !== OrganizationRole.OWNER &&
+        orgMember.role !== OrganizationRole.ADMIN)
+    ) {
+      throw new ForbiddenException(
+        'Only organization owners and admins can invite members',
+      );
+    }
+
+    // 3. Check if user is already a member of this organization
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email },
+    });
+    if (existingUser) {
+      const alreadyMember = await this.prisma.organizationMember.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId,
+            userId: existingUser.id,
+          },
+        },
+      });
+      if (alreadyMember) {
+        throw new ConflictException(
+          'User is already a member of this organization',
+        );
+      }
+    }
+
+    // 4. Create invitation
+    return this.create(inviterUserId, {
+      email,
+      role: dto.role || OrganizationRole.MEMBER,
+      organizationId,
+    });
+  }
+
+  async inviteToWorkspace(
+    workspaceId: string,
+    inviterUserId: string,
+    dto: InviteWorkspaceMemberDto,
+  ): Promise<CreateInvitationResult> {
+    const email = dto.email.toLowerCase().trim();
+
+    // 1. Verify workspace exists
+    const workspace = await this.prisma.workspace.findUnique({
+      where: { id: workspaceId },
+    });
+    if (!workspace) {
+      throw new NotFoundException('Workspace not found');
+    }
+
+    // 2. Check caller permission: Workspace OWNER/ADMIN or Org OWNER/ADMIN
+    const wsMember = await this.prisma.workspaceMember.findUnique({
+      where: {
+        workspaceId_userId: {
+          workspaceId,
+          userId: inviterUserId,
+        },
+      },
+    });
+    const isWsAdminOrOwner =
+      wsMember &&
+      (wsMember.role === WorkspaceRole.OWNER ||
+        wsMember.role === WorkspaceRole.ADMIN);
+
+    let isAuthorized = Boolean(isWsAdminOrOwner);
+    if (!isAuthorized) {
+      const orgMember = await this.prisma.organizationMember.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: workspace.organizationId,
+            userId: inviterUserId,
+          },
+        },
+      });
+      if (
+        orgMember &&
+        (orgMember.role === OrganizationRole.OWNER ||
+          orgMember.role === OrganizationRole.ADMIN)
+      ) {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
+      throw new ForbiddenException(
+        'Only workspace or organization owners and admins can invite workspace members',
+      );
+    }
+
+    // 3. Check if user is already a member of this workspace
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email },
+    });
+    if (existingUser) {
+      const alreadyMember = await this.prisma.workspaceMember.findUnique({
+        where: {
+          workspaceId_userId: {
+            workspaceId,
+            userId: existingUser.id,
+          },
+        },
+      });
+      if (alreadyMember) {
+        throw new ConflictException(
+          'User is already a member of this workspace',
+        );
+      }
+    }
+
+    // 4. Create invitation
+    return this.create(inviterUserId, {
+      email,
+      role: dto.role || WorkspaceRole.MEMBER,
+      workspaceId,
+    });
+  }
+
+  async inviteToProject(
+    projectId: string,
+    inviterUserId: string,
+    dto: InviteProjectMemberDto,
+  ): Promise<CreateInvitationResult> {
+    const email = dto.email.toLowerCase().trim();
+
+    // 1. Verify project exists
+    const project = await this.prisma.project.findUnique({
+      where: { id: projectId },
+    });
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    // 2. Check caller permission: Project MANAGER, Workspace OWNER/ADMIN, or Org OWNER/ADMIN
+    const pMember = await this.prisma.projectMember.findUnique({
+      where: {
+        projectId_userId: {
+          projectId,
+          userId: inviterUserId,
+        },
+      },
+    });
+    let isAuthorized = pMember && pMember.role === ProjectRole.MANAGER;
+
+    if (!isAuthorized) {
+      const wsMember = await this.prisma.workspaceMember.findUnique({
+        where: {
+          workspaceId_userId: {
+            workspaceId: project.workspaceId,
+            userId: inviterUserId,
+          },
+        },
+      });
+      if (
+        wsMember &&
+        (wsMember.role === WorkspaceRole.OWNER ||
+          wsMember.role === WorkspaceRole.ADMIN)
+      ) {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
+      const orgMember = await this.prisma.organizationMember.findUnique({
+        where: {
+          organizationId_userId: {
+            organizationId: project.organizationId,
+            userId: inviterUserId,
+          },
+        },
+      });
+      if (
+        orgMember &&
+        (orgMember.role === OrganizationRole.OWNER ||
+          orgMember.role === OrganizationRole.ADMIN)
+      ) {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
+      throw new ForbiddenException(
+        'Only project managers or workspace/organization admins can invite project members',
+      );
+    }
+
+    // 3. Check if user is already a member of this project
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email },
+    });
+    if (existingUser) {
+      const alreadyMember = await this.prisma.projectMember.findUnique({
+        where: {
+          projectId_userId: {
+            projectId,
+            userId: existingUser.id,
+          },
+        },
+      });
+      if (alreadyMember) {
+        throw new ConflictException(
+          'User is already a member of this project',
+        );
+      }
+    }
+
+    // 4. Create invitation
+    return this.create(inviterUserId, {
+      email,
+      role: dto.role || ProjectRole.MEMBER,
+      projectId,
+    });
   }
 
   async findValidByRawToken(rawToken: string): Promise<Invitation> {
