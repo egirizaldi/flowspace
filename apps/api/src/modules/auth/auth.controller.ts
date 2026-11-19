@@ -1,13 +1,27 @@
-import { Controller, Post, Body, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
+import { SessionService } from './session.service';
 import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
 import { ApiResponseDto } from '../../common/dto/api-response.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(
+    private readonly authService: AuthService,
+    private readonly sessionService: SessionService,
+  ) {}
 
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
@@ -30,6 +44,41 @@ export class AuthController {
     return {
       success: true,
       message: 'User registered successfully',
+      data: user,
+    };
+  }
+
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Log in with email and password' })
+  @ApiResponse({
+    status: 200,
+    description: 'Login successful, session cookie set',
+    type: ApiResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid credentials',
+  })
+  async login(
+    @Body() dto: LoginDto,
+    @Req() req: Request,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const userAgent = req.headers['user-agent'];
+    const ipAddress = req.ip || req.socket.remoteAddress;
+
+    const { user, rawToken } = await this.authService.login(
+      dto,
+      userAgent,
+      ipAddress,
+    );
+
+    this.sessionService.setSessionCookie(res, rawToken);
+
+    return {
+      success: true,
+      message: 'Login successful',
       data: user,
     };
   }
