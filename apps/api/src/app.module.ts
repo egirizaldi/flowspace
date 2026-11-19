@@ -8,6 +8,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { OrganizationsModule } from './modules/organizations/organizations.module';
 import { WorkspacesModule } from './modules/workspaces/workspaces.module';
 import { InvitationsModule } from './modules/invitations/invitations.module';
+import { ProjectsModule } from './modules/projects/projects.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { InvitationsModule } from './modules/invitations/invitations.module';
     OrganizationsModule,
     WorkspacesModule,
     InvitationsModule,
+    ProjectsModule,
   ],
 })
 export class AppModule {}
