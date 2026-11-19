@@ -13,6 +13,8 @@ describe('TasksController', () => {
     updateTask: jest.fn(),
     updateTaskStatus: jest.fn(),
     assignTask: jest.fn(),
+    removeAssignee: jest.fn(),
+    getTaskActivities: jest.fn(),
     moveTask: jest.fn(),
     deleteTask: jest.fn(),
   };
@@ -107,6 +109,36 @@ describe('TasksController', () => {
         'u-1',
         dto,
       );
+    });
+
+    it('should remove assignee and return wrapped response', async () => {
+      const updated = { id: 't-1', assigneeId: null, version: 3 };
+      mockTasksService.removeAssignee.mockResolvedValue(updated);
+
+      const res = await controller.removeAssignee('t-1', 'u-1');
+      expect(res).toEqual({
+        success: true,
+        message: 'Task assignee removed successfully',
+        data: updated,
+      });
+      expect(mockTasksService.removeAssignee).toHaveBeenCalledWith('t-1', 'u-1');
+    });
+  });
+
+  describe('getTaskActivities', () => {
+    it('should return activities wrapped in ApiResponse', async () => {
+      const mockActivities = [
+        { id: 'act-1', action: 'TASK_ASSIGNED', taskId: 't-1' },
+      ];
+      mockTasksService.getTaskActivities.mockResolvedValue(mockActivities);
+
+      const res = await controller.getTaskActivities('t-1', 'u-1');
+      expect(res).toEqual({
+        success: true,
+        message: 'Task activities retrieved successfully',
+        data: mockActivities,
+      });
+      expect(mockTasksService.getTaskActivities).toHaveBeenCalledWith('t-1', 'u-1');
     });
   });
 

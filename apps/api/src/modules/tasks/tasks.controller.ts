@@ -192,6 +192,75 @@ export class TasksController {
     };
   }
 
+  @Delete(':taskId/assignee')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remove assignee from task' })
+  @ApiParam({ name: 'taskId', description: 'Task UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Task assignee removed successfully',
+    type: ApiResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid or missing session',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - user does not have permission to edit this task',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Task not found',
+  })
+  async removeAssignee(
+    @Param('taskId', ParseUUIDPipe) taskId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    const task = await this.tasksService.removeAssignee(taskId, userId);
+    return {
+      success: true,
+      message: 'Task assignee removed successfully',
+      data: task,
+    };
+  }
+
+  @Get(':taskId/activities')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get task audit activity log' })
+  @ApiParam({ name: 'taskId', description: 'Task UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Task activities retrieved successfully',
+    type: ApiResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - invalid or missing session',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - user does not have access to view this task',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Task not found',
+  })
+  async getTaskActivities(
+    @Param('taskId', ParseUUIDPipe) taskId: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    const activities = await this.tasksService.getTaskActivities(
+      taskId,
+      userId,
+    );
+    return {
+      success: true,
+      message: 'Task activities retrieved successfully',
+      data: activities,
+    };
+  }
+
   @Patch(':taskId/move')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Move task position within or between workflow columns' })

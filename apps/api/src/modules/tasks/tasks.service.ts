@@ -367,6 +367,26 @@ export class TasksService {
         include: taskIncludes,
       });
 
+      if (createdTask.assigneeId) {
+        await tx.activity.create({
+          data: {
+            organizationId: project.organizationId,
+            projectId: project.id,
+            taskId: createdTask.id,
+            actorId: userId,
+            action: 'TASK_ASSIGNED',
+            entityType: 'TASK',
+            entityId: createdTask.id,
+            metadata: {
+              previousAssigneeId: null,
+              newAssigneeId: createdTask.assigneeId,
+              assigneeName: createdTask.assignee?.name || null,
+              taskKey: `${createdTask.project.key}-${createdTask.taskNumber}`,
+            },
+          },
+        });
+      }
+
       return {
         ...createdTask,
         taskKey: `${createdTask.project.key}-${createdTask.taskNumber}`,
@@ -599,6 +619,7 @@ export class TasksService {
       );
     }
 
+    let assigneeUser: any = null;
     if (dto.assigneeId) {
       const assigneeWsMember = await this.prisma.workspaceMember.findUnique({
         where: {
@@ -607,6 +628,9 @@ export class TasksService {
             userId: dto.assigneeId,
           },
         },
+        include: {
+          user: true,
+        },
       });
 
       if (!assigneeWsMember) {
@@ -614,21 +638,108 @@ export class TasksService {
           'Assignee must be a member of this workspace',
         );
       }
+      assigneeUser = assigneeWsMember.user;
     }
 
-    const updated = await this.prisma.task.update({
-      where: { id: taskId },
-      data: {
-        assigneeId: dto.assigneeId || null,
-        version: { increment: 1 },
-      },
-      include: taskIncludes,
-    });
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.task.update({
+        where: { id: taskId },
+        data: {
+          assigneeId: dto.assigneeId || null,
+          version: { increment: 1 },
+        },
+        include: taskIncludes,
+      });
 
-    return {
-      ...updated,
-      taskKey: `${updated.project.key}-${updated.taskNumber}`,
-    };
+      if (task.assigneeId !== (dto.assigneeId || null)) {
+        const action = dto.assigneeId ? 'TASK_ASSIGNED' : 'TASK_UNASSIGNED';
+        await tx.activity.create({
+          data: {
+            organizationId: task.project.organizationId,
+            projectId: task.projectId,
+            taskId: task.id,
+            actorId: userId,
+            action,
+            entityType: 'TASK',
+            entityId: task.id,
+            metadata: {
+              previousAssigneeId: task.assigneeId,
+              newAssigneeId: dto.assigneeId || null,
+              assigneeName: assigneeUser?.name || null,
+              taskKey: `${task.project.key}-${task.taskNumber}`,
+            },
+          },
+        });
+      }
+
+      return {
+        ...updated,
+        taskKey: `${updated.project.key}-${updated.taskNumber}`,
+      };
+    });
+  }
+
+  async removeAssignee(taskId: string, userId: string) {
+    const task = await this.checkTaskAccess(taskId, userId, false, true);
+
+    if (!task.assigneeId) {
+      return {
+        ...task,
+        taskKey: `${task.project.key}-${task.taskNumber}`,
+      };
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const updated = await tx.task.update({
+        where: { id: taskId },
+        data: {
+          assigneeId: null,
+          version: { increment: 1 },
+        },
+        include: taskIncludes,
+      });
+
+      await tx.activity.create({
+        data: {
+          organizationId: task.project.organizationId,
+          projectId: task.projectId,
+          taskId: task.id,
+          actorId: userId,
+          action: 'TASK_UNASSIGNED',
+          entityType: 'TASK',
+          entityId: task.id,
+          metadata: {
+            previousAssigneeId: task.assigneeId,
+            newAssigneeId: null,
+            taskKey: `${task.project.key}-${task.taskNumber}`,
+          },
+        },
+      });
+
+      return {
+        ...updated,
+        taskKey: `${updated.project.key}-${updated.taskNumber}`,
+      };
+    });
+  }
+
+  async getTaskActivities(taskId: string, userId: string) {
+    await this.checkTaskAccess(taskId, userId, false, false);
+
+    return this.prisma.activity.findMany({
+      where: { taskId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        actor: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
   }
 
   async moveTask(taskId: string, userId: string, dto: MoveTaskDto) {
