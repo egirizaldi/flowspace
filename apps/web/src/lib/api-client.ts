@@ -1,8 +1,9 @@
 export interface ApiErrorResponse {
   success: false;
-  error: {
-    code: string;
-    message: string;
+  message?: string;
+  error?: {
+    code?: string;
+    message?: string;
     details?: Array<{ field?: string; message: string }> | Record<string, unknown> | null;
   };
 }
@@ -64,7 +65,10 @@ async function request<T>(
     const errorBody = body as ApiErrorResponse | null;
     const errorCode = errorBody?.error?.code || `HTTP_${response.status}`;
     const errorMessage =
-      errorBody?.error?.message || response.statusText || 'Unknown error occurred';
+      errorBody?.message ||
+      errorBody?.error?.message ||
+      response.statusText ||
+      'Unknown error occurred';
     const errorDetails = errorBody?.error?.details;
 
     throw new ApiClientError(response.status, errorCode, errorMessage, errorDetails);
