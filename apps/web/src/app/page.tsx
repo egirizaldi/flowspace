@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,10 +22,14 @@ export default function HomePage() {
           </div>
         </div>
         <div className="flex items-center space-x-3">
-          <Button variant="ghost" size="sm">Documentation</Button>
-          <Button variant="default" size="sm">
-            Get Started <ArrowRight className="ml-1.5 h-4 w-4" />
-          </Button>
+          <Link href="/login">
+            <Button variant="ghost" size="sm">Sign In</Button>
+          </Link>
+          <Link href="/register">
+            <Button variant="default" size="sm">
+              Get Started <ArrowRight className="ml-1.5 h-4 w-4" />
+            </Button>
+          </Link>
         </div>
       </header>
 

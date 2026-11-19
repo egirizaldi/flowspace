@@ -4,6 +4,16 @@ import * as schemas from '../schemas/index';
 export * from '../constants/index';
 
 // Auth types
+export interface SafeUser {
+  id: string;
+  name: string;
+  email: string;
+  avatarUrl?: string | null;
+  emailVerifiedAt?: string | Date | null;
+  createdAt: string | Date;
+  updatedAt: string | Date;
+}
+
 export type RegisterInput = z.infer<typeof schemas.registerSchema>;
 export type LoginInput = z.infer<typeof schemas.loginSchema>;
 export type ForgotPasswordInput = z.infer<typeof schemas.forgotPasswordSchema>;
