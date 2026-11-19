@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "nest build",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate dev",
+    "build": "prisma generate && nest build",
     "start": "nest start",
     "dev": "nest start --watch",
     "lint": "echo \"NestJS lint passed\"",
@@ -19,6 +21,7 @@
     "@nestjs/core": "^11.2.11",
     "@nestjs/platform-express": "^11.2.11",
     "@nestjs/swagger": "^11.4.8",
+    "@prisma/client": "^6.4.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "reflect-metadata": "^0.2.2",
@@ -32,6 +35,7 @@
     "@types/jest": "^30.0.0",
     "@types/node": "^26.6.6",
     "jest": "^30.5.2",
+    "prisma": "^6.4.1",
     "ts-jest": "^29.4.15",
     "typescript": "^5.7.3"
   },

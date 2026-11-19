@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import configuration from './config/configuration';
+import { PrismaModule } from './database/prisma.module';
 import { HealthModule } from './modules/health/health.module';
 
 @Module({
@@ -9,6 +10,7 @@ import { HealthModule } from './modules/health/health.module';
       isGlobal: true,
       load: [configuration],
     }),
+    PrismaModule,
     HealthModule,
   ],
 })

@@ -9,17 +9,17 @@ export class HealthController {
   constructor(private readonly healthService: HealthService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Check API health status' })
+  @ApiOperation({ summary: 'Check API and database health status' })
   @ApiResponse({
     status: 200,
-    description: 'API is running and healthy',
+    description: 'API and database health status',
     type: ApiResponseDto,
   })
-  check() {
-    const data: HealthCheckResult = this.healthService.check();
+  async check() {
+    const data: HealthCheckResult = await this.healthService.check();
     return {
-      success: true,
-      message: 'FlowSpace API is healthy',
+      success: data.status === 'ok',
+      message: data.status === 'ok' ? 'FlowSpace API is healthy' : 'FlowSpace API is degraded',
       data,
     };
   }
