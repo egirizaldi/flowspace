@@ -1,6 +1,6 @@
 'use client';
 
-import React, { use } from 'react';
+import React, { use, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -15,14 +15,25 @@ import {
   Kanban,
   Clock,
   ArrowLeft,
+  Plus,
+  CheckCircle2,
+  ListTodo,
+  Search,
+  Tag,
+  User as UserIcon,
 } from 'lucide-react';
 import { useOrganizations } from '@/hooks/use-organization';
 import { useOrganizationWorkspaces } from '@/hooks/use-workspace';
 import { useWorkspaceProjects, useProject } from '@/hooks/use-project';
+import { useProjectTasks } from '@/hooks/use-tasks';
 import { DashboardLayout } from '@/components/layout/dashboard-layout';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { CreateTaskModal } from '@/components/tasks/create-task-modal';
+import { TaskDetailModal } from '@/components/tasks/task-detail-modal';
+import { TaskPriority } from '@flowspace/shared';
 
 interface PageProps {
   params: Promise<{
@@ -36,6 +47,11 @@ export default function ProjectOverviewPage({ params }: PageProps) {
   const resolvedParams = use(params);
   const { orgSlug, workspaceSlug, projectKey } = resolvedParams;
   const router = useRouter();
+
+  const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [taskSearch, setTaskSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('ALL');
 
   const { data: organizations = [], isLoading: isOrgsLoading } = useOrganizations();
   const currentOrg = organizations.find((o) => o.slug === orgSlug);
@@ -54,6 +70,12 @@ export default function ProjectOverviewPage({ params }: PageProps) {
     currentProjectSummary?.id || null,
   );
 
+  const project = projectDetail || currentProjectSummary;
+
+  const { data: tasks = [], isLoading: isTasksLoading } = useProjectTasks(
+    project?.id || null,
+  );
+
   if (isOrgsLoading || isWorkspacesLoading || isProjectsLoading || isDetailLoading) {
     return (
       <DashboardLayout activeOrgSlug={orgSlug} activeWorkspaceSlug={workspaceSlug}>
@@ -67,7 +89,7 @@ export default function ProjectOverviewPage({ params }: PageProps) {
     );
   }
 
-  if (!currentOrg || !currentWs || !currentProjectSummary) {
+  if (!currentOrg || !currentWs || !currentProjectSummary || !project) {
     return (
       <DashboardLayout activeOrgSlug={orgSlug} activeWorkspaceSlug={workspaceSlug}>
         <div className="p-8 text-center max-w-md mx-auto">
@@ -89,7 +111,33 @@ export default function ProjectOverviewPage({ params }: PageProps) {
     );
   }
 
-  const project = projectDetail || currentProjectSummary;
+  // Filter tasks
+  const filteredTasks = tasks.filter((t) => {
+    if (statusFilter !== 'ALL' && t.statusId !== statusFilter) {
+      return false;
+    }
+    if (taskSearch.trim()) {
+      const q = taskSearch.toLowerCase();
+      const matchTitle = t.title.toLowerCase().includes(q);
+      const matchKey = t.taskKey.toLowerCase().includes(q);
+      if (!matchTitle && !matchKey) return false;
+    }
+    return true;
+  });
+
+  const getPriorityBadge = (priority: TaskPriority) => {
+    switch (priority) {
+      case 'URGENT':
+        return <Badge variant="danger" className="text-[10px] px-1.5 py-0">Urgent</Badge>;
+      case 'HIGH':
+        return <Badge variant="warning" className="text-[10px] px-1.5 py-0">High</Badge>;
+      case 'MEDIUM':
+        return <Badge variant="info" className="text-[10px] px-1.5 py-0">Medium</Badge>;
+      case 'LOW':
+      default:
+        return <Badge variant="secondary" className="text-[10px] px-1.5 py-0">Low</Badge>;
+    }
+  };
 
   return (
     <DashboardLayout activeOrgSlug={orgSlug} activeWorkspaceSlug={workspaceSlug}>
@@ -144,6 +192,13 @@ export default function ProjectOverviewPage({ params }: PageProps) {
 
           <div className="flex items-center gap-3 self-start md:self-auto">
             <Button
+              onClick={() => setIsCreateTaskOpen(true)}
+              className="flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              <span>New Task</span>
+            </Button>
+            <Button
               variant="outline"
               onClick={() =>
                 router.push(`/${orgSlug}/${workspaceSlug}/${project.key}/settings`)
@@ -157,7 +212,18 @@ export default function ProjectOverviewPage({ params }: PageProps) {
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center gap-1.5 text-xs">
+                <ListTodo className="w-4 h-4 text-primary" /> Total Tasks
+              </CardDescription>
+              <CardTitle className="text-2xl font-bold">
+                {tasks.length}
+              </CardTitle>
+            </CardHeader>
+          </Card>
+
           <Card>
             <CardHeader className="pb-2">
               <CardDescription className="flex items-center gap-1.5 text-xs">
@@ -194,8 +260,163 @@ export default function ProjectOverviewPage({ params }: PageProps) {
           </Card>
         </div>
 
-        {/* Workflow Stages Section */}
+        {/* Tasks Section */}
         <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
+                <span>Tasks</span>
+                <span className="text-xs font-normal text-muted-foreground font-mono">
+                  ({filteredTasks.length})
+                </span>
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                All tasks, subtasks, and issues in this project.
+              </p>
+            </div>
+
+            {/* Filter controls */}
+            <div className="flex items-center gap-2">
+              <div className="relative w-48 sm:w-64">
+                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search tasks..."
+                  value={taskSearch}
+                  onChange={(e) => setTaskSearch(e.target.value)}
+                  className="h-8 pl-8 text-xs"
+                />
+              </div>
+
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="h-8 rounded-md border border-border bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+              >
+                <option value="ALL">All Statuses</option>
+                {(project.statuses || []).map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Task Table / List */}
+          {isTasksLoading ? (
+            <div className="h-48 rounded-xl border border-border bg-surface flex items-center justify-center text-muted-foreground">
+              <Loader2 className="w-6 h-6 animate-spin text-primary" />
+            </div>
+          ) : filteredTasks.length === 0 ? (
+            <div className="p-10 rounded-xl border border-dashed border-border bg-surface text-center">
+              <ListTodo className="w-10 h-10 text-muted-foreground/60 mx-auto mb-3" />
+              <h3 className="text-sm font-semibold text-foreground">
+                {taskSearch || statusFilter !== 'ALL'
+                  ? 'No matching tasks found'
+                  : 'No tasks created yet'}
+              </h3>
+              <p className="text-xs text-muted-foreground mt-1 mb-4 max-w-sm mx-auto">
+                {taskSearch || statusFilter !== 'ALL'
+                  ? 'Try clearing or modifying your search filters.'
+                  : 'Get started by creating your first task in this project.'}
+              </p>
+              {!(taskSearch || statusFilter !== 'ALL') && (
+                <Button
+                  size="sm"
+                  onClick={() => setIsCreateTaskOpen(true)}
+                  className="flex items-center gap-1.5 mx-auto"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Create Task</span>
+                </Button>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-border bg-surface divide-y divide-border overflow-hidden shadow-sm">
+              {filteredTasks.map((task) => (
+                <div
+                  key={task.id}
+                  onClick={() => setSelectedTaskId(task.id)}
+                  className="p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-surface-elevated/60 cursor-pointer transition-colors group"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span
+                      className="w-2.5 h-2.5 rounded-full shrink-0"
+                      style={{ backgroundColor: task.status.color }}
+                      title={task.status.name}
+                    />
+                    <span className="text-xs font-mono font-semibold text-muted-foreground shrink-0 group-hover:text-primary transition-colors">
+                      {task.taskKey}
+                    </span>
+                    <span className="text-sm font-medium text-foreground truncate">
+                      {task.title}
+                    </span>
+
+                    {/* Labels preview */}
+                    {task.labels && task.labels.length > 0 && (
+                      <div className="hidden sm:flex items-center gap-1 shrink-0">
+                        {task.labels.slice(0, 3).map(({ label }) => (
+                          <span
+                            key={label.id}
+                            className="px-1.5 py-0.2 rounded text-[10px] font-medium border"
+                            style={{
+                              backgroundColor: `${label.color}15`,
+                              borderColor: `${label.color}35`,
+                              color: label.color,
+                            }}
+                          >
+                            {label.name}
+                          </span>
+                        ))}
+                        {task.labels.length > 3 && (
+                          <span className="text-[10px] text-muted-foreground font-mono">
+                            +{task.labels.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-3 shrink-0 self-end sm:self-auto text-xs">
+                    {/* Subtasks count if any */}
+                    {task._count && task._count.subtasks > 0 && (
+                      <span className="flex items-center gap-1 text-[11px] text-muted-foreground font-mono">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
+                        {task._count.subtasks}
+                      </span>
+                    )}
+
+                    {getPriorityBadge(task.priority)}
+
+                    {/* Status Badge */}
+                    <Badge variant="outline" className="text-xs font-mono">
+                      {task.status.name}
+                    </Badge>
+
+                    {/* Assignee Avatar / Name */}
+                    {task.assignee ? (
+                      <div
+                        className="w-6 h-6 rounded-full bg-primary/10 border border-primary/20 text-primary flex items-center justify-center text-[10px] font-bold"
+                        title={`Assigned to ${task.assignee.name}`}
+                      >
+                        {task.assignee.name[0].toUpperCase()}
+                      </div>
+                    ) : (
+                      <span title="Unassigned">
+                        <UserIcon className="w-4 h-4 text-muted-foreground/40" />
+                      </span>
+                    )}
+
+                    <ArrowRight className="w-3.5 h-3.5 text-muted-foreground/50 group-hover:text-foreground transition-colors" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Workflow Stages Section */}
+        <div className="space-y-4 pt-4 border-t border-border">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-foreground">
@@ -278,6 +499,29 @@ export default function ProjectOverviewPage({ params }: PageProps) {
           </div>
         )}
       </div>
+
+      {/* Modals */}
+      <CreateTaskModal
+        isOpen={isCreateTaskOpen}
+        onClose={() => setIsCreateTaskOpen(false)}
+        projectId={project.id}
+        projectKey={project.key}
+        statuses={project.statuses || []}
+        members={projectDetail?.members || []}
+        onSuccess={(taskId) => {
+          setSelectedTaskId(taskId);
+        }}
+      />
+
+      <TaskDetailModal
+        isOpen={Boolean(selectedTaskId)}
+        onClose={() => setSelectedTaskId(null)}
+        taskId={selectedTaskId}
+        projectId={project.id}
+        statuses={project.statuses || []}
+        members={projectDetail?.members || []}
+        onSelectTask={(newTaskId) => setSelectedTaskId(newTaskId)}
+      />
     </DashboardLayout>
   );
 }

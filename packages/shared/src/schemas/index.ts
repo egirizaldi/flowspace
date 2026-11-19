@@ -146,7 +146,7 @@ export const createTaskSchema = z.object({
   title: z.string().min(1, 'Task title is required').max(255),
   description: z.string().optional(),
   statusId: z.string().uuid().optional(),
-  priority: z.enum(TASK_PRIORITIES).default('MEDIUM'),
+  priority: z.enum(TASK_PRIORITIES).optional(),
   assigneeId: z.string().uuid().optional().nullable(),
   parentTaskId: z.string().uuid().optional().nullable(),
   startDate: z.string().date().optional().nullable(),
@@ -176,6 +176,29 @@ export const moveTaskSchema = z.object({
   statusId: z.string().uuid(),
   position: z.string().or(z.number()),
   version: z.number().int().min(1),
+});
+
+export const setParentTaskSchema = z.object({
+  parentTaskId: z.string().uuid().nullable(),
+  version: z.number().int().min(1),
+});
+
+// ==========================================
+// Label Schemas
+// ==========================================
+
+export const createLabelSchema = z.object({
+  name: z.string().min(1, 'Label name is required').max(80),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Color must be a valid hex code (e.g. #3b82f6)'),
+});
+
+export const updateLabelSchema = z.object({
+  name: z.string().min(1).max(80).optional(),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Color must be a valid hex code').optional(),
+});
+
+export const attachLabelSchema = z.object({
+  labelId: z.string().uuid('Invalid label ID'),
 });
 
 // ==========================================

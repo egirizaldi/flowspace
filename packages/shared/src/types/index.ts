@@ -41,6 +41,12 @@ export type UpdateTaskInput = z.infer<typeof schemas.updateTaskSchema>;
 export type UpdateTaskStatusInput = z.infer<typeof schemas.updateTaskStatusSchema>;
 export type AssignTaskInput = z.infer<typeof schemas.assignTaskSchema>;
 export type MoveTaskInput = z.infer<typeof schemas.moveTaskSchema>;
+export type SetParentTaskInput = z.infer<typeof schemas.setParentTaskSchema>;
+
+// Label types
+export type CreateLabelInput = z.infer<typeof schemas.createLabelSchema>;
+export type UpdateLabelInput = z.infer<typeof schemas.updateLabelSchema>;
+export type AttachLabelInput = z.infer<typeof schemas.attachLabelSchema>;
 
 // Comment types
 export type CreateCommentInput = z.infer<typeof schemas.createCommentSchema>;
