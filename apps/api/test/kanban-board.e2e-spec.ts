@@ -37,6 +37,7 @@ describe('Kanban Board API (FS-037 e2e)', () => {
   let statusTodoId: string;
   let statusInProgressId: string;
   let statusDoneId: string;
+  let labelId: string;
   let task1Id: string;
   let task2Id: string;
   let task3Id: string;
@@ -132,7 +133,7 @@ describe('Kanban Board API (FS-037 e2e)', () => {
       .set('Cookie', [`flowspace_session=${tokenOwner}`])
       .send({ name: 'Frontend', color: '#3b82f6' })
       .expect(201);
-    const labelId = labelRes.body.data.id;
+    labelId = labelRes.body.data.id;
 
     // Create Task 1 (Todo, Priority HIGH, Assigned)
     const t1Res = await request(app.getHttpServer())
@@ -147,6 +148,16 @@ describe('Kanban Board API (FS-037 e2e)', () => {
       .expect(201);
     task1Id = t1Res.body.data.id;
 
+    // Set Task 1 dueDate to yesterday (OVERDUE)
+    const now = new Date();
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    await request(app.getHttpServer())
+      .patch(`/api/v1/tasks/${task1Id}`)
+      .set('Cookie', [`flowspace_session=${tokenOwner}`])
+      .send({ version: 1, dueDate: yesterday.toISOString().split('T')[0] })
+      .expect(200);
+
     // Attach label to Task 1
     await request(app.getHttpServer())
       .post(`/api/v1/tasks/${task1Id}/labels`)
@@ -154,7 +165,7 @@ describe('Kanban Board API (FS-037 e2e)', () => {
       .send({ labelId })
       .expect(200);
 
-    // Create Task 2 (Todo, Priority LOW)
+    // Create Task 2 (Todo, Priority LOW, Due Today)
     const t2Res = await request(app.getHttpServer())
       .post(`/api/v1/projects/${projectId}/tasks`)
       .set('Cookie', [`flowspace_session=${tokenOwner}`])
@@ -165,6 +176,12 @@ describe('Kanban Board API (FS-037 e2e)', () => {
       })
       .expect(201);
     task2Id = t2Res.body.data.id;
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/tasks/${task2Id}`)
+      .set('Cookie', [`flowspace_session=${tokenOwner}`])
+      .send({ version: 1, dueDate: now.toISOString().split('T')[0] })
+      .expect(200);
 
     // Create Task 3 (In Progress, Priority MEDIUM)
     const t3Res = await request(app.getHttpServer())
@@ -300,6 +317,122 @@ describe('Kanban Board API (FS-037 e2e)', () => {
       const todoCol = res.body.data.columns.find((c: any) => c.id === statusTodoId);
       expect(todoCol.tasks.length).toBe(1);
       expect(todoCol.tasks[0].id).toBe(task2Id);
+    });
+
+    it('should filter board tasks by label', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/projects/${projectId}/board?labelId=${labelId}`)
+        .set('Cookie', [`flowspace_session=${tokenOwner}`])
+        .expect(200);
+
+      const todoCol = res.body.data.columns.find((c: any) => c.id === statusTodoId);
+      expect(todoCol.tasks.length).toBe(1);
+      expect(todoCol.tasks[0].id).toBe(task1Id);
+
+      const inProgressCol = res.body.data.columns.find((c: any) => c.id === statusInProgressId);
+      expect(inProgressCol.tasks.length).toBe(0);
+    });
+
+    it('should filter board tasks by assignee=UNASSIGNED', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/projects/${projectId}/board?assigneeId=UNASSIGNED`)
+        .set('Cookie', [`flowspace_session=${tokenOwner}`])
+        .expect(200);
+
+      const todoCol = res.body.data.columns.find((c: any) => c.id === statusTodoId);
+      // Task 2 is unassigned
+      expect(todoCol.tasks.length).toBe(1);
+      expect(todoCol.tasks[0].id).toBe(task2Id);
+
+      const inProgressCol = res.body.data.columns.find((c: any) => c.id === statusInProgressId);
+      // Task 3 is unassigned
+      expect(inProgressCol.tasks.length).toBe(1);
+      expect(inProgressCol.tasks[0].id).toBe(task3Id);
+    });
+
+    it('should filter board tasks by dueDateStatus=OVERDUE', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/projects/${projectId}/board?dueDateStatus=OVERDUE`)
+        .set('Cookie', [`flowspace_session=${tokenOwner}`])
+        .expect(200);
+
+      const todoCol = res.body.data.columns.find((c: any) => c.id === statusTodoId);
+      expect(todoCol.tasks.length).toBe(1);
+      expect(todoCol.tasks[0].id).toBe(task1Id);
+    });
+
+    it('should filter board tasks by dueDateStatus=TODAY', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/projects/${projectId}/board?dueDateStatus=TODAY`)
+        .set('Cookie', [`flowspace_session=${tokenOwner}`])
+        .expect(200);
+
+      const todoCol = res.body.data.columns.find((c: any) => c.id === statusTodoId);
+      expect(todoCol.tasks.length).toBe(1);
+      expect(todoCol.tasks[0].id).toBe(task2Id);
+    });
+
+    it('should filter board tasks by dueDateStatus=NO_DUE_DATE', async () => {
+      const res = await request(app.getHttpServer())
+        .get(`/api/v1/projects/${projectId}/board?dueDateStatus=NO_DUE_DATE`)
+        .set('Cookie', [`flowspace_session=${tokenOwner}`])
+        .expect(200);
+
+      const todoCol = res.body.data.columns.find((c: any) => c.id === statusTodoId);
+      expect(todoCol.tasks.length).toBe(0);
+
+      const inProgressCol = res.body.data.columns.find((c: any) => c.id === statusInProgressId);
+      expect(inProgressCol.tasks.length).toBe(1);
+      expect(inProgressCol.tasks[0].id).toBe(task3Id);
+    });
+
+    it('should filter board tasks by combining multiple filters', async () => {
+      // search for "Alpha", priority HIGH, labelId, and OVERDUE
+      const res = await request(app.getHttpServer())
+        .get(
+          `/api/v1/projects/${projectId}/board?search=Alpha&priority=HIGH&labelId=${labelId}&dueDateStatus=OVERDUE`,
+        )
+        .set('Cookie', [`flowspace_session=${tokenOwner}`])
+        .expect(200);
+
+      const todoCol = res.body.data.columns.find((c: any) => c.id === statusTodoId);
+      expect(todoCol.tasks.length).toBe(1);
+      expect(todoCol.tasks[0].id).toBe(task1Id);
+
+      // Mutate search to mismatch -> should return empty
+      const resEmpty = await request(app.getHttpServer())
+        .get(
+          `/api/v1/projects/${projectId}/board?search=Beta&priority=HIGH&labelId=${labelId}`,
+        )
+        .set('Cookie', [`flowspace_session=${tokenOwner}`])
+        .expect(200);
+
+      const todoColEmpty = resEmpty.body.data.columns.find((c: any) => c.id === statusTodoId);
+      expect(todoColEmpty.tasks.length).toBe(0);
+    });
+
+    it('should filter task list consistently with GET /api/v1/projects/:projectId/tasks', async () => {
+      const res = await request(app.getHttpServer())
+        .get(
+          `/api/v1/projects/${projectId}/tasks?search=Alpha&priority=HIGH&labelId=${labelId}&dueDateStatus=OVERDUE`,
+        )
+        .set('Cookie', [`flowspace_session=${tokenOwner}`])
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.length).toBe(1);
+      expect(res.body.data[0].id).toBe(task1Id);
+
+      // Test UNASSIGNED on list
+      const resUnassigned = await request(app.getHttpServer())
+        .get(`/api/v1/projects/${projectId}/tasks?assigneeId=UNASSIGNED`)
+        .set('Cookie', [`flowspace_session=${tokenOwner}`])
+        .expect(200);
+
+      expect(resUnassigned.body.success).toBe(true);
+      expect(
+        resUnassigned.body.data.every((t: any) => t.assigneeId === null),
+      ).toBe(true);
     });
 
     it('should reject unauthenticated request with 401', async () => {

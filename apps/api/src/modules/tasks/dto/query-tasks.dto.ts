@@ -6,10 +6,12 @@ import {
   Max,
   IsEnum,
   IsUUID,
+  IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { TaskPriority } from '@prisma/client';
+import { DUE_DATE_STATUSES, DueDateStatus } from './query-board.dto';
 
 export class QueryTasksDto {
   @ApiPropertyOptional({
@@ -62,11 +64,28 @@ export class QueryTasksDto {
 
   @ApiPropertyOptional({
     example: '550e8400-e29b-41d4-a716-446655440001',
-    description: 'Filter by assignee user ID',
+    description: 'Filter by assignee user ID or "UNASSIGNED"',
+  })
+  @IsOptional()
+  @IsString()
+  assigneeId?: string;
+
+  @ApiPropertyOptional({
+    example: '550e8400-e29b-41d4-a716-446655440002',
+    description: 'Filter by label ID',
   })
   @IsOptional()
   @IsUUID('4')
-  assigneeId?: string;
+  labelId?: string;
+
+  @ApiPropertyOptional({
+    enum: DUE_DATE_STATUSES,
+    example: 'OVERDUE',
+    description: 'Filter tasks by due date status (OVERDUE, TODAY, THIS_WEEK, NO_DUE_DATE)',
+  })
+  @IsOptional()
+  @IsIn(DUE_DATE_STATUSES)
+  dueDateStatus?: DueDateStatus;
 
   @ApiPropertyOptional({
     example: '550e8400-e29b-41d4-a716-446655440002',

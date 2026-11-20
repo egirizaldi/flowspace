@@ -22,6 +22,14 @@ export type ProjectLifecycleStatus = (typeof PROJECT_LIFECYCLE_STATUSES)[number]
 export const TASK_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'URGENT'] as const;
 export type TaskPriority = (typeof TASK_PRIORITIES)[number];
 
+export const DUE_DATE_STATUSES = [
+  'OVERDUE',
+  'TODAY',
+  'THIS_WEEK',
+  'NO_DUE_DATE',
+] as const;
+export type DueDateStatus = (typeof DUE_DATE_STATUSES)[number];
+
 export const INVITATION_STATUSES = [
   'PENDING',
   'ACCEPTED',

@@ -34,6 +34,11 @@ import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/ca
 import { CreateTaskModal } from '@/components/tasks/create-task-modal';
 import { TaskDetailModal } from '@/components/tasks/task-detail-modal';
 import { KanbanBoard } from '@/components/kanban/kanban-board';
+import {
+  BoardFilterBar,
+  DEFAULT_BOARD_FILTERS,
+  BoardFilters,
+} from '@/components/kanban/board-filter-bar';
 import { TaskPriority } from '@flowspace/shared';
 
 interface PageProps {
@@ -53,9 +58,8 @@ export default function ProjectOverviewPage({ params }: PageProps) {
   const [isCreateTaskOpen, setIsCreateTaskOpen] = useState(false);
   const [createTaskStatusId, setCreateTaskStatusId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
-  const [taskSearch, setTaskSearch] = useState('');
+  const [boardFilters, setBoardFilters] = useState<BoardFilters>(DEFAULT_BOARD_FILTERS);
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
-  const [priorityFilter, setPriorityFilter] = useState<string>('ALL');
 
   const { data: organizations = [], isLoading: isOrgsLoading } = useOrganizations();
   const currentOrg = organizations.find((o) => o.slug === orgSlug);
@@ -76,8 +80,20 @@ export default function ProjectOverviewPage({ params }: PageProps) {
 
   const project = projectDetail || currentProjectSummary;
 
-  const { data: tasks = [], isLoading: isTasksLoading } = useProjectTasks(
+  const { data: allTasks = [] } = useProjectTasks(project?.id || null);
+
+  const queryTasksOptions = {
+    search: boardFilters.search.trim() || undefined,
+    priority: boardFilters.priority !== 'ALL' ? boardFilters.priority : undefined,
+    assigneeId: boardFilters.assigneeId !== 'ALL' ? boardFilters.assigneeId : undefined,
+    labelId: boardFilters.labelId !== 'ALL' ? boardFilters.labelId : undefined,
+    dueDateStatus: boardFilters.dueDateStatus !== 'ALL' ? boardFilters.dueDateStatus : undefined,
+    statusId: statusFilter !== 'ALL' ? statusFilter : undefined,
+  };
+
+  const { data: listTasks = [], isLoading: isTasksLoading } = useProjectTasks(
     project?.id || null,
+    queryTasksOptions,
   );
 
   if (isOrgsLoading || isWorkspacesLoading || isProjectsLoading || isDetailLoading) {
@@ -115,22 +131,17 @@ export default function ProjectOverviewPage({ params }: PageProps) {
     );
   }
 
-  // Filter tasks for list view
-  const filteredTasks = tasks.filter((t) => {
-    if (statusFilter !== 'ALL' && t.statusId !== statusFilter) {
-      return false;
-    }
-    if (priorityFilter !== 'ALL' && t.priority !== priorityFilter) {
-      return false;
-    }
-    if (taskSearch.trim()) {
-      const q = taskSearch.toLowerCase();
-      const matchTitle = t.title.toLowerCase().includes(q);
-      const matchKey = t.taskKey.toLowerCase().includes(q);
-      if (!matchTitle && !matchKey) return false;
-    }
-    return true;
-  });
+  // Filter tasks for list view (fetched from backend with exact filters)
+  const filteredTasks = listTasks;
+
+  const isAnyFilterActive = Boolean(
+    boardFilters.search.trim() ||
+      boardFilters.priority !== 'ALL' ||
+      boardFilters.assigneeId !== 'ALL' ||
+      boardFilters.labelId !== 'ALL' ||
+      boardFilters.dueDateStatus !== 'ALL' ||
+      statusFilter !== 'ALL',
+  );
 
   const getPriorityBadge = (priority: TaskPriority) => {
     switch (priority) {
@@ -229,7 +240,7 @@ export default function ProjectOverviewPage({ params }: PageProps) {
                 <ListTodo className="w-4 h-4 text-primary" /> Total Tasks
               </CardDescription>
               <CardTitle className="text-2xl font-bold">
-                {tasks.length}
+                {allTasks.length}
               </CardTitle>
             </CardHeader>
           </Card>
@@ -279,7 +290,7 @@ export default function ProjectOverviewPage({ params }: PageProps) {
                 <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
                   <span>Tasks</span>
                   <span className="text-xs font-normal text-muted-foreground font-mono">
-                    ({tasks.length})
+                    ({allTasks.length})
                   </span>
                 </h2>
                 <p className="text-xs text-muted-foreground">
@@ -318,16 +329,6 @@ export default function ProjectOverviewPage({ params }: PageProps) {
 
             {/* Filter controls */}
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="relative w-40 sm:w-56">
-                <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search tasks..."
-                  value={taskSearch}
-                  onChange={(e) => setTaskSearch(e.target.value)}
-                  className="h-8 pl-8 text-xs"
-                />
-              </div>
-
               {viewMode === 'list' && (
                 <select
                   value={statusFilter}
@@ -343,17 +344,15 @@ export default function ProjectOverviewPage({ params }: PageProps) {
                 </select>
               )}
 
-              <select
-                value={priorityFilter}
-                onChange={(e) => setPriorityFilter(e.target.value)}
-                className="h-8 rounded-md border border-border bg-background px-2.5 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              >
-                <option value="ALL">All Priorities</option>
-                <option value="URGENT">Urgent</option>
-                <option value="HIGH">High</option>
-                <option value="MEDIUM">Medium</option>
-                <option value="LOW">Low</option>
-              </select>
+              <BoardFilterBar
+                projectId={project.id}
+                filters={boardFilters}
+                onChange={setBoardFilters}
+                onReset={() => {
+                  setBoardFilters(DEFAULT_BOARD_FILTERS);
+                  setStatusFilter('ALL');
+                }}
+              />
             </div>
           </div>
 
@@ -362,8 +361,11 @@ export default function ProjectOverviewPage({ params }: PageProps) {
             <KanbanBoard
               projectId={project.id}
               filters={{
-                search: taskSearch.trim() || undefined,
-                priority: priorityFilter !== 'ALL' ? priorityFilter : undefined,
+                search: boardFilters.search.trim() || undefined,
+                priority: boardFilters.priority !== 'ALL' ? boardFilters.priority : undefined,
+                assigneeId: boardFilters.assigneeId !== 'ALL' ? boardFilters.assigneeId : undefined,
+                labelId: boardFilters.labelId !== 'ALL' ? boardFilters.labelId : undefined,
+                dueDateStatus: boardFilters.dueDateStatus !== 'ALL' ? boardFilters.dueDateStatus : undefined,
               }}
               onTaskClick={(id) => setSelectedTaskId(id)}
               onAddTaskClick={(statusId) => {
@@ -379,16 +381,16 @@ export default function ProjectOverviewPage({ params }: PageProps) {
             <div className="p-10 rounded-xl border border-dashed border-border bg-surface text-center">
               <ListTodo className="w-10 h-10 text-muted-foreground/60 mx-auto mb-3" />
               <h3 className="text-sm font-semibold text-foreground">
-                {taskSearch || statusFilter !== 'ALL' || priorityFilter !== 'ALL'
+                {isAnyFilterActive
                   ? 'No matching tasks found'
                   : 'No tasks created yet'}
               </h3>
               <p className="text-xs text-muted-foreground mt-1 mb-4 max-w-sm mx-auto">
-                {taskSearch || statusFilter !== 'ALL' || priorityFilter !== 'ALL'
+                {isAnyFilterActive
                   ? 'Try clearing or modifying your search filters.'
                   : 'Get started by creating your first task in this project.'}
               </p>
-              {!(taskSearch || statusFilter !== 'ALL' || priorityFilter !== 'ALL') && (
+              {!isAnyFilterActive && (
                 <Button
                   size="sm"
                   onClick={() => {

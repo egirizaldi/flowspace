@@ -158,6 +158,8 @@ export interface KanbanBoardData {
 export interface QueryBoardOptions {
   assigneeId?: string;
   priority?: string;
+  labelId?: string;
+  dueDateStatus?: string;
   search?: string;
   includeSubtasks?: boolean;
 }
@@ -185,6 +187,8 @@ export interface QueryTasksOptions {
   statusId?: string;
   priority?: string;
   assigneeId?: string;
+  labelId?: string;
+  dueDateStatus?: string;
   parentTaskId?: string;
   search?: string;
   page?: number;
@@ -199,6 +203,8 @@ export function useProjectTasks(
   if (options?.statusId) queryParams.set('statusId', options.statusId);
   if (options?.priority) queryParams.set('priority', options.priority);
   if (options?.assigneeId) queryParams.set('assigneeId', options.assigneeId);
+  if (options?.labelId) queryParams.set('labelId', options.labelId);
+  if (options?.dueDateStatus) queryParams.set('dueDateStatus', options.dueDateStatus);
   if (options?.parentTaskId) queryParams.set('parentTaskId', options.parentTaskId);
   if (options?.search) queryParams.set('search', options.search);
   if (options?.page) queryParams.set('page', String(options.page));
@@ -564,6 +570,8 @@ export function useKanbanBoard(
   const queryParams = new URLSearchParams();
   if (options?.assigneeId) queryParams.set('assigneeId', options.assigneeId);
   if (options?.priority) queryParams.set('priority', options.priority);
+  if (options?.labelId) queryParams.set('labelId', options.labelId);
+  if (options?.dueDateStatus) queryParams.set('dueDateStatus', options.dueDateStatus);
   if (options?.search) queryParams.set('search', options.search);
   if (options?.includeSubtasks) queryParams.set('includeSubtasks', 'true');
   const queryStr = queryParams.toString();

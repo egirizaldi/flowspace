@@ -16,7 +16,7 @@ import { CreateLabelDto } from './dto/create-label.dto';
 import { UpdateLabelDto } from './dto/update-label.dto';
 import { AttachLabelDto } from './dto/attach-label.dto';
 import { SetParentTaskDto } from './dto/set-parent-task.dto';
-import { QueryBoardDto } from './dto/query-board.dto';
+import { QueryBoardDto, DueDateStatus } from './dto/query-board.dto';
 import {
   TaskPriority,
   ProjectRole,
@@ -399,6 +399,52 @@ export class TasksService {
     });
   }
 
+  private applyDueDateFilter(
+    where: Prisma.TaskWhereInput,
+    dueDateStatus: DueDateStatus,
+  ) {
+    const now = new Date();
+    const todayStart = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0),
+    );
+    const todayEnd = new Date(
+      Date.UTC(
+        now.getUTCFullYear(),
+        now.getUTCMonth(),
+        now.getUTCDate(),
+        23,
+        59,
+        59,
+        999,
+      ),
+    );
+
+    const dayOfWeek = now.getUTCDay();
+    const diffToMonday = (dayOfWeek + 6) % 7;
+    const startOfWeek = new Date(todayStart);
+    startOfWeek.setUTCDate(todayStart.getUTCDate() - diffToMonday);
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setUTCDate(startOfWeek.getUTCDate() + 6);
+    endOfWeek.setUTCHours(23, 59, 59, 999);
+
+    switch (dueDateStatus) {
+      case 'OVERDUE':
+        where.dueDate = { lt: todayStart };
+        where.completedAt = null;
+        break;
+      case 'TODAY':
+        where.dueDate = { gte: todayStart, lte: todayEnd };
+        break;
+      case 'THIS_WEEK':
+        where.dueDate = { gte: startOfWeek, lte: endOfWeek };
+        break;
+      case 'NO_DUE_DATE':
+        where.dueDate = null;
+        break;
+    }
+  }
+
   async findProjectTasks(
     projectId: string,
     userId: string,
@@ -424,7 +470,23 @@ export class TasksService {
     }
 
     if (query.assigneeId) {
-      where.assigneeId = query.assigneeId;
+      if (query.assigneeId === 'UNASSIGNED') {
+        where.assigneeId = null;
+      } else {
+        where.assigneeId = query.assigneeId;
+      }
+    }
+
+    if (query.labelId) {
+      where.labels = {
+        some: {
+          labelId: query.labelId,
+        },
+      };
+    }
+
+    if (query.dueDateStatus) {
+      this.applyDueDateFilter(where, query.dueDateStatus);
     }
 
     if (query.parentTaskId) {
@@ -1077,11 +1139,27 @@ export class TasksService {
     }
 
     if (query?.assigneeId) {
-      where.assigneeId = query.assigneeId;
+      if (query.assigneeId === 'UNASSIGNED') {
+        where.assigneeId = null;
+      } else {
+        where.assigneeId = query.assigneeId;
+      }
     }
 
     if (query?.priority) {
       where.priority = query.priority;
+    }
+
+    if (query?.labelId) {
+      where.labels = {
+        some: {
+          labelId: query.labelId,
+        },
+      };
+    }
+
+    if (query?.dueDateStatus) {
+      this.applyDueDateFilter(where, query.dueDateStatus);
     }
 
     if (query?.search && query.search.trim()) {
