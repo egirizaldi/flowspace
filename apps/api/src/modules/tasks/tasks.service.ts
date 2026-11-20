@@ -18,6 +18,7 @@ import { AttachLabelDto } from './dto/attach-label.dto';
 import { SetParentTaskDto } from './dto/set-parent-task.dto';
 import { QueryBoardDto, DueDateStatus } from './dto/query-board.dto';
 import { ActivitiesService } from '../activities/activities.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import {
   TaskPriority,
   ProjectRole,
@@ -60,6 +61,7 @@ export class TasksService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly activitiesService: ActivitiesService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async checkProjectAccess(projectId: string, userId: string) {
@@ -413,6 +415,17 @@ export class TasksService {
             },
           },
         });
+
+        if (createdTask.assigneeId !== userId) {
+          await this.notificationsService.createNotification({
+            userId: createdTask.assigneeId,
+            type: 'TASK_ASSIGNED',
+            title: 'You were assigned to a task',
+            message: `You were assigned to ${createdTask.project.key}-${createdTask.taskNumber}: ${createdTask.title}`,
+            resourceType: 'TASK',
+            resourceId: createdTask.id,
+          });
+        }
       }
 
       return {
@@ -783,6 +796,17 @@ export class TasksService {
             },
           },
         });
+
+        if (dto.assigneeId && dto.assigneeId !== userId) {
+          await this.notificationsService.createNotification({
+            userId: dto.assigneeId,
+            type: 'TASK_ASSIGNED',
+            title: 'You were assigned to a task',
+            message: `You were assigned to ${task.project.key}-${task.taskNumber}: ${task.title}`,
+            resourceType: 'TASK',
+            resourceId: task.id,
+          });
+        }
       }
 
       return {

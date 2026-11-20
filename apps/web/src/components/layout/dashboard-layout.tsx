@@ -21,6 +21,7 @@ import {
   OrganizationWorkspace,
 } from '@/hooks/use-workspace';
 import { OrgWorkspaceSwitcher } from '../navigation/org-workspace-switcher';
+import { NotificationBell } from '../notifications/notification-bell';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 
@@ -223,18 +224,22 @@ export function DashboardLayout({
             </div>
           </div>
 
-          {/* Role badge */}
-          {activeWorkspace?.userRole ? (
-            <Badge variant="outline" className="text-xs font-mono">
-              <Shield className="w-3 h-3 mr-1 text-primary" />
-              {activeWorkspace.userRole}
-            </Badge>
-          ) : activeOrg?.userRole ? (
-            <Badge variant="outline" className="text-xs font-mono">
-              <Shield className="w-3 h-3 mr-1 text-primary" />
-              {activeOrg.userRole}
-            </Badge>
-          ) : null}
+          <div className="flex items-center gap-3">
+            <NotificationBell />
+
+            {/* Role badge */}
+            {activeWorkspace?.userRole ? (
+              <Badge variant="outline" className="text-xs font-mono">
+                <Shield className="w-3 h-3 mr-1 text-primary" />
+                {activeWorkspace.userRole}
+              </Badge>
+            ) : activeOrg?.userRole ? (
+              <Badge variant="outline" className="text-xs font-mono">
+                <Shield className="w-3 h-3 mr-1 text-primary" />
+                {activeOrg.userRole}
+              </Badge>
+            ) : null}
+          </div>
         </header>
 
         {/* Page Content */}

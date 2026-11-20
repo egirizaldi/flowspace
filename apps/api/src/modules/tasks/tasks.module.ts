@@ -6,9 +6,10 @@ import { ProjectLabelsController } from './project-labels.controller';
 import { ProjectBoardController } from './project-board.controller';
 import { AuthModule } from '../auth/auth.module';
 import { ActivitiesModule } from '../activities/activities.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
-  imports: [AuthModule, ActivitiesModule],
+  imports: [AuthModule, ActivitiesModule, NotificationsModule],
   controllers: [
     ProjectTasksController,
     TasksController,

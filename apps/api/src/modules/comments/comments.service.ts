@@ -6,6 +6,7 @@ import {
 import { PrismaService } from '../../database/prisma.service';
 import { TasksService } from '../tasks/tasks.service';
 import { ActivitiesService } from '../activities/activities.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
 import { QueryCommentsDto } from './dto/query-comments.dto';
@@ -29,6 +30,7 @@ export class CommentsService {
     private readonly prisma: PrismaService,
     private readonly tasksService: TasksService,
     private readonly activitiesService: ActivitiesService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   private async hasManagerAccess(
@@ -88,6 +90,25 @@ export class CommentsService {
         taskKey: `${task.project.key}-${task.taskNumber}`,
       },
     });
+
+    const recipients = new Set<string>();
+    if (task.assigneeId && task.assigneeId !== userId) {
+      recipients.add(task.assigneeId);
+    }
+    if (task.createdBy && task.createdBy !== userId) {
+      recipients.add(task.createdBy);
+    }
+
+    for (const recipientId of recipients) {
+      await this.notificationsService.createNotification({
+        userId: recipientId,
+        type: 'COMMENT_ADDED',
+        title: 'New comment on task',
+        message: `${comment.user?.name || 'Someone'} commented on ${task.project.key}-${task.taskNumber}: ${dto.content.trim().slice(0, 80)}`,
+        resourceType: 'TASK',
+        resourceId: task.id,
+      });
+    }
 
     return comment;
   }
