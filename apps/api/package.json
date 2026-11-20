@@ -5,6 +5,7 @@
   "scripts": {
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "seed": "node prisma/seed.js",
     "build": "prisma generate && nest build",
     "start": "nest start",
     "dev": "nest start --watch",
