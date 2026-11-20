@@ -84,7 +84,90 @@ Detailed specifications and architectural guides are maintained in the [`docs/`]
 
 ---
 
-## 5. Development Principles
+## 5. Quick Start & Local Setup
+
+### Prerequisites
+- **Node.js:** >= 20.x
+- **pnpm:** >= 9.x
+- **PostgreSQL:** >= 16.x (or Docker)
+
+### 1. Clone & Install Dependencies
+```bash
+git clone https://github.com/flowspace/flowspace.git
+cd flowspace
+pnpm install
+```
+
+### 2. Environment Configuration
+Copy environment variable templates:
+```bash
+cp apps/api/.env.example apps/api/.env
+cp apps/web/.env.example apps/web/.env
+```
+
+### 3. Database Initialization (Prisma)
+```bash
+# Generate Prisma Client & apply migrations
+pnpm --filter @flowspace/api run prisma:generate
+pnpm --filter @flowspace/api run prisma:migrate
+```
+
+### 4. Run Development Servers
+```bash
+pnpm run dev
+```
+- **Web Frontend:** [http://localhost:3000](http://localhost:3000)
+- **REST API:** [http://localhost:3001/api/v1](http://localhost:3001/api/v1)
+- **API Swagger Documentation:** [http://localhost:3001/api/docs](http://localhost:3001/api/docs)
+- **Health Check:** [http://localhost:3001/api/v1/health](http://localhost:3001/api/v1/health)
+
+### 5. Running with Docker Compose
+```bash
+cd docker
+docker compose up -d
+```
+
+---
+
+## 6. Testing & Quality Assurance
+
+```bash
+# Run all unit tests across monorepo
+pnpm run test
+
+# Run API unit & E2E integration test suites
+pnpm --filter @flowspace/api run test
+pnpm --filter @flowspace/api run test:e2e
+
+# Run Web unit test suite
+pnpm --filter @flowspace/web run test
+
+# Run monorepo typecheck & lint
+pnpm run lint
+
+# Build production artifacts
+pnpm run build
+```
+
+---
+
+## 7. MVP Feature Status & Phase Matrix
+
+| Phase | Milestone | Tasks Covered | Status |
+|---|---|---|---|
+| **Phase 0** | Monorepo & Tooling Setup | FS-001 – FS-005 | Completed |
+| **Phase 1** | Authentication & Profile | FS-006 – FS-012 | Completed |
+| **Phase 2** | Organization & Tenancy | FS-013 – FS-016 | Completed |
+| **Phase 3** | Workspaces Management | FS-017 – FS-020 | Completed |
+| **Phase 4** | Invitations & RBAC | FS-021 – FS-025 | Completed |
+| **Phase 5** | Project Management | FS-026 – FS-031 | Completed |
+| **Phase 6** | Task Management & Kanban Board | FS-032 – FS-040 | Completed |
+| **Phase 7** | Collaboration (Comments, Activities, Notifications) | FS-041 – FS-046 | Completed |
+| **Phase 8** | MVP Stabilization & Production Readiness | FS-047 – FS-049 | Completed |
+
+---
+
+## 8. Development Principles
 
 All development on FlowSpace adheres to the following protocol defined in [AGENTS.md](./AGENTS.md):
 - **Vertical Slice Development:** One task from [docs/TASK-BREAKDOWN.md](./docs/TASK-BREAKDOWN.md) at a time.
