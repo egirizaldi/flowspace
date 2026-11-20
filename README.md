@@ -21,7 +21,34 @@ $$\text{Organization} \longrightarrow \text{Workspace} \longrightarrow \text{Pro
 
 ---
 
-## 2. Technology Stack
+## 2. Masalah yang Diselesaikan (The Problems We Solve)
+
+Dalam dunia pengembangan software dan manajemen produk modern, kegagalan proyek hampir tidak pernah disebabkan oleh kurangnya kemampuan teknis, melainkan oleh **fragmentasi komunikasi, perkakas yang lambat/rumit, dan hilangnya visibilitas alur kerja**. 
+
+Sebagai *problem solver* profesional, FlowSpace dibangun secara presisi untuk menuntaskan 5 titik masalah kritis (*operational bottlenecks*) berikut:
+
+```mermaid
+flowchart LR
+    A["❌ Masalah: Komunikasi Tercecer & Proyek Macet"] --> B["⚡ FlowSpace Platform"]
+    B --> C["✅ Solusi: Visibilitas Penuh, Alur Cepat, & Keamanan Data"]
+```
+
+### 🎯 5 Solusi Konkret yang Dihadirkan FlowSpace:
+
+| Masalah Nyata di Lapangan (Pain Point) | Mengapa Ini Terjadi? | Solusi Profesional FlowSpace (Engineering Solution) |
+| :--- | :--- | :--- |
+| **1. Tugas Tercecer & Kehilangan Konteks *(SaaS Sprawl)*** | Tim menggunakan chat (Slack/WA) untuk instruksi, spreadsheet untuk tracking, dan catatan tempel. Konteks hilang saat tugas dieksekusi. | **Single Source of Truth:** Struktur hierarki bersih `Organisasi → Workspace → Project → Task`. Seluruh diskusi Markdown, dokumen, dan instruksi menempel langsung pada kartu task terkait. |
+| **2. *"Jira Fatigue"* & Aplikasi Terlalu Berat** | Software manajemen proyek konvensional lambat, berbelit-belit (*bloated*), dan membebani mental tim sehingga anggota malas memperbarui status task. | **Linear-inspired Speed & Trello Simplicity:** Dibangun di atas Next.js 15+ App Router & Turbopack. Interaksi papan Kanban drag-and-drop (*dnd-kit*) terasa instan, mulus, dan menyenangkan digunakan setiap hari. |
+| **3. Rapat Berulang & Status Check Fatigue** | Manajer dan Tech Lead membuang waktu 2–3 jam sehari hanya untuk bertanya *"Bagaimana progres fitur X?"* atau *"Siapa yang sedang mengerjakan bug Y?"*. | **Transparansi Visual & Audit Trail Lengkap:** Status Kanban berkode warna (To Do, In Progress, In Review, Done), label prioritas, avatar assignee, serta *Activity Log* otomatis yang merekam setiap perpindahan status secara transparan. |
+| **4. Kebocoran Data Antar-Klien / Antar-Tim** | Agensi, konsultan, atau perusahaan multi-tim berisiko tinggi membocorkan data rahasia jika sistem perizinan tidak diisolasi secara ketat. | **Zero-Trust Multi-Tenant Architecture:** Setiap permintaan divalidasi hingga level transaksi database PostgreSQL. Kontraktor di Workspace A tidak akan pernah bisa mengintip Project di Workspace B berkat Role-Based Access Control (RBAC). |
+| **5. Konflik Pembaruan & Data Hilang *(Race Condition)*** | Ketika dua orang mengedit status kartu task yang sama secara bersamaan di papan kolaboratif, salah satu perubahan bisa tertimpa (*lost update*). | **Optimistic Concurrency Control:** Didukung penguncian versi otomatis (`version-based optimistic locking`). Setiap perubahan diverifikasi sehingga integritas data proyek selalu terjaga 100%. |
+
+> **Filosofi Produk Kami:** *"Make complex project management feel simple."*  
+> Kami tidak sekadar menambahkan fitur; kami memangkas friksi operasional agar tim Anda bisa fokus menghasilkan karya terbaik secara cepat dan terukur.
+
+---
+
+## 3. Technology Stack
 
 ### Frontend
 - **Framework:** Next.js (App Router)
@@ -45,7 +72,7 @@ $$\text{Organization} \longrightarrow \text{Workspace} \longrightarrow \text{Pro
 
 ---
 
-## 3. Repository Structure
+## 4. Repository Structure
 
 ```text
 flowspace/
@@ -65,7 +92,7 @@ flowspace/
 
 ---
 
-## 4. Documentation Index
+## 5. Documentation Index
 
 Detailed specifications and architectural guides are maintained in the [`docs/`](./docs) directory:
 
@@ -84,7 +111,7 @@ Detailed specifications and architectural guides are maintained in the [`docs/`]
 
 ---
 
-## 5. Quick Start & Local Setup
+## 6. Quick Start & Local Setup
 
 ### Prerequisites
 - **Node.js:** >= 20.x
@@ -129,7 +156,7 @@ docker compose up -d
 
 ---
 
-## 6. Testing & Quality Assurance
+## 7. Testing & Quality Assurance
 
 ```bash
 # Run all unit tests across monorepo
@@ -151,7 +178,7 @@ pnpm run build
 
 ---
 
-## 7. MVP Feature Status & Phase Matrix
+## 8. MVP Feature Status & Phase Matrix
 
 | Phase | Milestone | Tasks Covered | Status |
 |---|---|---|---|
@@ -167,7 +194,7 @@ pnpm run build
 
 ---
 
-## 8. Development Principles
+## 9. Development Principles
 
 All development on FlowSpace adheres to the following protocol defined in [AGENTS.md](./AGENTS.md):
 - **Vertical Slice Development:** One task from [docs/TASK-BREAKDOWN.md](./docs/TASK-BREAKDOWN.md) at a time.
