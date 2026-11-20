@@ -22,6 +22,7 @@ import {
 } from '@/hooks/use-workspace';
 import { OrgWorkspaceSwitcher } from '../navigation/org-workspace-switcher';
 import { NotificationBell } from '../notifications/notification-bell';
+import { FlowSpaceLogo } from '../ui/flowspace-logo';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 
@@ -102,13 +103,8 @@ export function DashboardLayout({
       >
         {/* Brand Header */}
         <div className="h-14 px-4 flex items-center justify-between border-b border-border">
-          <Link href="/organizations" className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-black text-sm">
-              FS
-            </div>
-            <span className="font-bold text-base tracking-tight text-foreground">
-              FlowSpace
-            </span>
+          <Link href="/organizations" className="flex items-center transition-opacity hover:opacity-90">
+            <FlowSpaceLogo size={26} textClassName="text-base font-bold" />
           </Link>
           <Button
             variant="ghost"

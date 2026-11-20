@@ -4,6 +4,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { BackendStatus } from '@/components/backend-status';
+import { FlowSpaceLogo } from '@/components/ui/flowspace-logo';
+import { HomeHeaderAuth } from '@/components/navigation/home-header-auth';
 import { DEFAULT_PROJECT_STATUSES } from '@flowspace/shared';
 import { Kanban, Layers, Users, ShieldCheck, ArrowRight, Sparkles } from 'lucide-react';
 
@@ -13,27 +15,14 @@ export default function HomePage() {
       {/* Top Header */}
       <header className="w-full max-w-5xl flex items-center justify-between py-4 border-b border-border">
         <div className="flex items-center space-x-3">
-          <div className="h-9 w-9 rounded-lg bg-primary flex items-center justify-center text-white font-bold shadow-md">
-            FS
-          </div>
-          <div>
-            <span className="font-bold text-lg tracking-tight">FlowSpace</span>
-            <span className="ml-2 text-xs text-muted-foreground font-mono">v1.0.0-mvp</span>
-          </div>
+          <Link href="/" className="flex items-center transition-opacity hover:opacity-90">
+            <FlowSpaceLogo size={32} textClassName="text-lg font-bold" />
+          </Link>
+          <span className="text-xs text-muted-foreground font-mono bg-surface px-2 py-0.5 rounded border border-border">
+            v1.0.0-mvp
+          </span>
         </div>
-        <div className="flex items-center space-x-3">
-          <Link href="/organizations">
-            <Button variant="outline" size="sm">Organizations</Button>
-          </Link>
-          <Link href="/login">
-            <Button variant="ghost" size="sm">Sign In</Button>
-          </Link>
-          <Link href="/register">
-            <Button variant="default" size="sm">
-              Get Started <ArrowRight className="ml-1.5 h-4 w-4" />
-            </Button>
-          </Link>
-        </div>
+        <HomeHeaderAuth />
       </header>
 
       {/* Hero Section */}

@@ -1,8 +1,9 @@
 'use client';
 
 import * as React from 'react';
+import { Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@/lib/zod-resolver';
 import { loginSchema, LoginInput } from '@flowspace/shared';
@@ -13,8 +14,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, AlertCircle } from 'lucide-react';
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnUrl = searchParams.get('returnUrl') || '/organizations';
   const [serverError, setServerError] = React.useState<string | null>(null);
 
   const {
@@ -33,7 +36,7 @@ export default function LoginPage() {
     try {
       setServerError(null);
       await authApi.login(data);
-      router.push('/');
+      router.push(returnUrl);
     } catch (err: any) {
       setServerError(
         err.message || 'Failed to log in. Please check your credentials.'
@@ -47,7 +50,7 @@ export default function LoginPage() {
       description="Enter your email and password to access your workspaces"
       footerText="Don't have an account?"
       footerLinkText="Sign up"
-      footerLinkHref="/register"
+      footerLinkHref={returnUrl !== '/organizations' ? `/register?returnUrl=${encodeURIComponent(returnUrl)}` : '/register'}
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         {serverError && (
@@ -116,5 +119,19 @@ export default function LoginPage() {
         </Button>
       </form>
     </AuthCard>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

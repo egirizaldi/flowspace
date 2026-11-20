@@ -10,6 +10,7 @@ import {
 import { useCurrentUser } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { FlowSpaceLogo } from '@/components/ui/flowspace-logo';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import {
   Building2,
@@ -234,11 +235,10 @@ export default function InvitePage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col justify-center items-center p-4">
       {/* Top FS Logo */}
-      <div className="mb-6 flex items-center gap-2">
-        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-black text-sm">
-          FS
-        </div>
-        <span className="font-bold text-lg tracking-tight">FlowSpace</span>
+      <div className="mb-6">
+        <Link href="/" className="inline-flex items-center transition-opacity hover:opacity-90">
+          <FlowSpaceLogo size={32} textClassName="text-lg font-bold" />
+        </Link>
       </div>
 
       <Suspense

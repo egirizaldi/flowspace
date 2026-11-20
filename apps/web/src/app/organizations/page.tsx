@@ -17,6 +17,7 @@ import { useCurrentUser } from '@/hooks/use-auth';
 import { CreateOrganizationModal } from '@/components/organizations/create-organization-modal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { FlowSpaceLogo } from '@/components/ui/flowspace-logo';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 
 export default function OrganizationsPage() {
@@ -40,12 +41,9 @@ export default function OrganizationsPage() {
     <div className="min-h-screen bg-background text-foreground flex flex-col">
       {/* Top Header */}
       <header className="h-14 border-b border-border bg-surface px-6 flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-black text-sm">
-            FS
-          </div>
-          <span className="font-bold text-base tracking-tight">FlowSpace</span>
-        </div>
+        <Link href="/" className="flex items-center transition-opacity hover:opacity-90">
+          <FlowSpaceLogo size={28} textClassName="text-base font-bold" />
+        </Link>
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground">
             Signed in as <strong className="text-foreground">{user?.email}</strong>

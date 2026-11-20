@@ -1,6 +1,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { FlowSpaceLogo } from '@/components/ui/flowspace-logo';
 
 interface AuthCardProps {
   title: string;
@@ -24,13 +25,8 @@ export function AuthCard({
       <div className="w-full max-w-sm space-y-6">
         {/* Brand Logo Header */}
         <div className="flex flex-col items-center space-y-2 text-center">
-          <Link href="/" className="inline-flex items-center gap-2 group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 border border-primary/20 text-primary transition-colors group-hover:bg-primary/20">
-              <span className="font-bold text-base tracking-wider">FS</span>
-            </div>
-            <span className="text-xl font-semibold tracking-tight text-foreground">
-              FlowSpace
-            </span>
+          <Link href="/" className="inline-flex items-center group transition-opacity hover:opacity-90">
+            <FlowSpaceLogo size={34} textClassName="text-xl font-bold" />
           </Link>
         </div>
 

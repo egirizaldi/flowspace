@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@/lib/zod-resolver';
 import { registerSchema, RegisterInput } from '@flowspace/shared';
@@ -12,8 +13,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Loader2, AlertCircle } from 'lucide-react';
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnUrl = searchParams.get('returnUrl') || '/organizations';
   const [serverError, setServerError] = React.useState<string | null>(null);
 
   const {
@@ -35,7 +38,7 @@ export default function RegisterPage() {
       await authApi.register(data);
       // Auto-login upon registration for seamless onboarding
       await authApi.login({ email: data.email, password: data.password });
-      router.push('/');
+      router.push(returnUrl);
     } catch (err: any) {
       setServerError(
         err.message || 'Registration failed. Please check your information.'
@@ -49,7 +52,7 @@ export default function RegisterPage() {
       description="Start collaborating with your team on FlowSpace"
       footerText="Already have an account?"
       footerLinkText="Sign in"
-      footerLinkHref="/login"
+      footerLinkHref={returnUrl !== '/organizations' ? `/login?returnUrl=${encodeURIComponent(returnUrl)}` : '/login'}
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         {serverError && (
@@ -129,5 +132,19 @@ export default function RegisterPage() {
         </Button>
       </form>
     </AuthCard>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      }
+    >
+      <RegisterForm />
+    </Suspense>
   );
 }
