@@ -5,9 +5,10 @@ import { TasksController } from './tasks.controller';
 import { ProjectLabelsController } from './project-labels.controller';
 import { ProjectBoardController } from './project-board.controller';
 import { AuthModule } from '../auth/auth.module';
+import { ActivitiesModule } from '../activities/activities.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, ActivitiesModule],
   controllers: [
     ProjectTasksController,
     TasksController,

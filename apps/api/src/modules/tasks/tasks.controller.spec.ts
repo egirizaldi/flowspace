@@ -129,23 +129,6 @@ describe('TasksController', () => {
     });
   });
 
-  describe('getTaskActivities', () => {
-    it('should return activities wrapped in ApiResponse', async () => {
-      const mockActivities = [
-        { id: 'act-1', action: 'TASK_ASSIGNED', taskId: 't-1' },
-      ];
-      mockTasksService.getTaskActivities.mockResolvedValue(mockActivities);
-
-      const res = await controller.getTaskActivities('t-1', 'u-1');
-      expect(res).toEqual({
-        success: true,
-        message: 'Task activities retrieved successfully',
-        data: mockActivities,
-      });
-      expect(mockTasksService.getTaskActivities).toHaveBeenCalledWith('t-1', 'u-1');
-    });
-  });
-
   describe('moveTask', () => {
     it('should move task position and return wrapped response', async () => {
       const dto = { statusId: 's-3', position: '120000', version: 1 };

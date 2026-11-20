@@ -5,6 +5,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { TasksService } from '../tasks/tasks.service';
+import { ActivitiesService } from '../activities/activities.service';
 import { CreateCommentDto } from './dto/create-comment.dto';
 import { UpdateCommentDto } from './dto/update-comment.dto';
 import { QueryCommentsDto } from './dto/query-comments.dto';
@@ -27,6 +28,7 @@ export class CommentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly tasksService: TasksService,
+    private readonly activitiesService: ActivitiesService,
   ) {}
 
   private async hasManagerAccess(
@@ -57,7 +59,7 @@ export class CommentsService {
   }
 
   async createComment(taskId: string, userId: string, dto: CreateCommentDto) {
-    await this.tasksService.checkTaskAccess(taskId, userId);
+    const task = await this.tasksService.checkTaskAccess(taskId, userId);
 
     const comment = await this.prisma.comment.create({
       data: {
@@ -69,6 +71,21 @@ export class CommentsService {
         user: {
           select: commentUserSelect,
         },
+      },
+    });
+
+    await this.activitiesService.logActivity({
+      organizationId: task.project.organizationId,
+      projectId: task.projectId,
+      taskId: task.id,
+      actorId: userId,
+      action: 'COMMENT_ADDED',
+      entityType: 'COMMENT',
+      entityId: comment.id,
+      metadata: {
+        commentId: comment.id,
+        preview: dto.content.trim().slice(0, 100),
+        taskKey: `${task.project.key}-${task.taskNumber}`,
       },
     });
 

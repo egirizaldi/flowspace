@@ -11,6 +11,7 @@ import { InvitationsModule } from './modules/invitations/invitations.module';
 import { ProjectsModule } from './modules/projects/projects.module';
 import { TasksModule } from './modules/tasks/tasks.module';
 import { CommentsModule } from './modules/comments/comments.module';
+import { ActivitiesModule } from './modules/activities/activities.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { CommentsModule } from './modules/comments/comments.module';
     ProjectsModule,
     TasksModule,
     CommentsModule,
+    ActivitiesModule,
   ],
 })
 export class AppModule {}
