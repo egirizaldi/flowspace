@@ -34,6 +34,7 @@ import { TaskPriority } from '@flowspace/shared';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { TaskComments } from './task-comments';
 
 interface TaskDetailModalProps {
   taskId: string | null;
@@ -553,6 +554,15 @@ export function TaskDetailModal({
                     <span>Add</span>
                   </Button>
                 </form>
+              </div>
+
+              {/* Discussion & Comments Section */}
+              <div className="pt-4 border-t border-border">
+                <TaskComments
+                  taskId={task.id}
+                  projectId={projectId}
+                  members={members}
+                />
               </div>
 
               {/* Activity History Section */}
